@@ -8,6 +8,7 @@ requirements = [
                 'numpy',
                 'scipy',
                 'matplotlib',
+                'numba',
                 'xarray',
                 'zarr',
                 'pyscilog >= 0.1.2',
