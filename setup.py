@@ -36,7 +36,7 @@ setup(
      ],
      entry_points='''
                     [console_scripts]
-                    jove=jove.main:cli
+                    smoovie=jove.main:cli
 
      '''
      ,

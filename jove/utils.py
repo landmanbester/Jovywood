@@ -1,4 +1,8 @@
-
+import numpy as np
+import xarray as xr
+from africanus.gps.utils import abs_diff
+from numba import jit
+from scipy.optimize import fmin_l_bfgs_b as fmin
 
 def init_datetime(dtime):
     date, time = dtime.split('T')
@@ -62,3 +66,89 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, unit='Jy/beam'):
     header['SPECSYS'] = 'TOPOCENT'
 
     return header
+
+
+@jit(nopython=True, nogil=True, cache=True, inline='always')
+def diag_dot(A, B):
+    N = A.shape[0]
+    C = np.zeros(N)
+    for i in range(N):
+        for j in range(N):
+            C[i] += A[i, j] * B[j, i]
+    return C
+
+@jit(nopython=True, nogil=True, cache=True)
+def dZdtheta(theta, xxsq, y, Sigma):
+    '''
+    Return log-marginal likelihood and derivs
+    '''
+    N = xxsq.shape[0]
+    sigmaf = theta[0]
+    l = theta[1]
+    sigman = theta[2]
+
+    # first the negloglik
+    K = sigmaf**2 * np.exp(-xxsq/(2*l**2))
+    Ky = K + np.diag(Sigma) * sigman**2
+    u, s, v = np.linalg.svd(Ky)
+    logdetK = np.sum(np.log(s))
+    Kyinv = u.dot(v/s.reshape(N, 1))
+    alpha = Kyinv.dot(y)
+    Z = (np.vdot(y, alpha) + logdetK)/2
+
+    # derivs
+    dZ = np.zeros(theta.size)
+    alpha = alpha.reshape(N, 1)
+    aaT = Kyinv - alpha.dot(alpha.T)
+
+    # deriv wrt sigmaf
+    dK = 2 * K / sigmaf
+    dZ[0] = np.sum(diag_dot(aaT, dK))/2
+
+    # deriv wrt l
+    dK = xxsq * K / l ** 3
+    dZ[1] = np.sum(diag_dot(aaT, dK))/2
+
+    # deriv wrt sigman
+    dK = np.diag(2*sigman*Sigma)
+    dZ[2] = np.sum(diag_dot(aaT, dK))/2
+
+    return Z, dZ
+
+def fit_pix(image, xxsq, xxpsq, Sigma, sigman0, inflate_noise):
+    return _fit_pix(image[0], xxsq, xxpsq, Sigma, sigman0, inflate_noise)
+
+def _fit_pix(image, xxsq, Sigma, sigman0):
+    nt, nx, ny = image.shape
+    thetas = np.zeros((3, nx, ny))
+    for i in range(nx):
+        for j in range(ny):
+            y = np.ascontiguousarray(image[:, i, j])
+            theta0 = np.array([np.std(y), 0.025, sigman0])
+
+            theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
+                                      bounds=((1e-5, None), (1e-4, None), (0.1, 100)))
+
+            thetas[:, i, j] = theta
+
+    return thetas
+
+@jit(nopython=True, nogil=True, cache=True, inline='always')
+def _interp_pix(theta, xxsq, xxpsq, y, Sigma, oversmooth):
+    K = theta[0]**2*np.exp(-xxsq/(2*theta[1]**2))
+    Ky = K + np.diag(Sigma) * oversmooth * theta[2]**2
+    Kp = theta[0]**2*np.exp(-xxpsq/(2*theta[1]**2))
+    return Kp.dot(np.linalg.solve(Ky, y))
+
+@jit(nopython=True, nogil=True, cache=True)
+def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
+    _, nx, ny = thetas.shape
+    ntout = xxpsq.shape[0]
+    imagep = np.zeros((ntout, nx, ny))
+    for i in range(nx):
+        for j in range(ny):
+            y = image[:, i, j]
+            theta = thetas[:, i, j]
+            imagep[:, i, j] = _interp_pix(theta, xxsq, xxpsq, y, Sigma, oversmooth)
+
+    return imagep
