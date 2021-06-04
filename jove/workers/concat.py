@@ -22,8 +22,12 @@ def concat(**kw):
     '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
-    pyscilog.log_to_file(args.output_filename + '.log')
+    pyscilog.log_to_file(args.output + '.log')
     pyscilog.enable_memory_logging(level=3)
+
+    print("Input options :")
+    for key in kw.keys():
+        print('     %25s = %s' % (key, args[key]), file=log)
 
     import numpy as np
     from astropy.io import fits

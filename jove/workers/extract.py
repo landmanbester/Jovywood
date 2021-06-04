@@ -26,7 +26,7 @@ def extract(**kw):
     '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
-    pyscilog.log_to_file(args.output_filename + '.log')
+    pyscilog.log_to_file(args.output + '.log')
     pyscilog.enable_memory_logging(level=3)
 
     import numpy as np
@@ -37,10 +37,9 @@ def extract(**kw):
     from matplotlib.colors import LogNorm
     from PIL import Image
 
-    GD = vars(args)
     print("Input options :")
-    for key in GD.keys():
-        print(key + ' = ', GD[key] )
+    for key in kw.keys():
+        print('     %25s = %s' % (key, args[key]), file=log)
 
     print("Reading data")
     Din = xr.open_dataset(args.data, engine='zarr', chunks={'time':1, 'nx':args.pix_chunks, 'ny':args.pix_chunks},)

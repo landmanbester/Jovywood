@@ -4,7 +4,7 @@ from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
-log = pyscilog.get_logger('CONCAT')
+log = pyscilog.get_logger('INTERP')
 
 @cli.command()
 @click.option("-d", "--data", type=str,
@@ -29,12 +29,12 @@ def interp(**kw):
     '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
-    pyscilog.log_to_file(args.output_filename + '.log')
+    pyscilog.log_to_file(args.output + '.log')
     pyscilog.enable_memory_logging(level=3)
 
     print("Input options :")
-    for key in GD.keys():
-        print(key + ' = ', args[key])
+    for key in kw.keys():
+        print('     %25s = %s' % (key, args[key]), file=log)
 
     import os
     os.environ["OMP_NUM_THREADS"] = str(1)
