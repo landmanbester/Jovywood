@@ -22,7 +22,7 @@ def concat(**kw):
     '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
-    pyscilog.log_to_file(args.output + '.log')
+    pyscilog.log_to_file(args.outfile + '.log')
     pyscilog.enable_memory_logging(level=3)
 
     print("Input options :")
