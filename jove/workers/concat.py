@@ -89,7 +89,7 @@ def concat(**kw):
 
     image_cube = np.concatenate(image_cube, axis=0)
     import dask.array as da
-    image_cube = da.from_array(image_cube,
+    image_cube = da.from_array(image_cube.astype(np.float64),
                                chunks=(1, args.pix_chunks, args.pix_chunks),
                                name=False)
     times = da.from_array(times,
