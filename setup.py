@@ -16,6 +16,7 @@ requirements = [
                 'omegaconf',
                 'dask',
                 'dask[array]',
+                'astropy',
             ]
 
 
