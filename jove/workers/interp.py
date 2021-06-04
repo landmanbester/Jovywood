@@ -1,5 +1,6 @@
 
 import click
+from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
@@ -18,11 +19,14 @@ log = pyscilog.get_logger('CONCAT')
               help="Number of output times")
 @click.option('-dur', "--duration", type=float, default=5,
               help="Duration of gif in ms")
-@click.option('-os', "--oversmooth", type=int, default=5,
-              help="Noise inflation factor")
+@click.option('-os', "--oversmooth", type=int, default=2,
+              help="Over-smoothing factor.")
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
 def interp(**kw):
+    '''
+    Interpolate the image using GPR
+    '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
     pyscilog.log_to_file(args.output_filename + '.log')
@@ -40,7 +44,7 @@ def interp(**kw):
     os.environ["NUMBA_NUM_THREADS"] = str(1)
     import numpy as np
     import xarray as xr
-    from africanus.gps.utils import abs_diff
+    from jove.utils import abs_diff
     import dask.array as da
     import dask
     from dask.diagnostics import ProgressBar

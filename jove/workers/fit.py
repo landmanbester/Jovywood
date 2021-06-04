@@ -1,5 +1,6 @@
 
 import click
+from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
@@ -15,6 +16,9 @@ log = pyscilog.get_logger('CONCAT')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
 def fit(**kw):
+    '''
+    Fit hyperparameters for each pixel and write it out as a zarr array
+    '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
     pyscilog.log_to_file(args.output_filename + '.log')
@@ -32,7 +36,7 @@ def fit(**kw):
     os.environ["NUMBA_NUM_THREADS"] = str(1)
     import numpy as np
     import xarray as xr
-    from africanus.gps.utils import abs_diff
+    from jove.utils import abs_diff
     import dask.array as da
     import dask
     from dask.diagnostics import ProgressBar

@@ -1,4 +1,5 @@
 import click
+from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
@@ -20,6 +21,9 @@ log = pyscilog.get_logger('EXTRACT')
 @click.option('-dur', "--duration", type=float, default=5,
               help="Duration of gif in s")
 def extract(**kw):
+    '''
+    Extract a region of the zarrified image
+    '''
     args = OmegaConf.create(kw)
     OmegaConf.set_struct(args, True)
     pyscilog.log_to_file(args.output_filename + '.log')

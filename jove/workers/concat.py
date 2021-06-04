@@ -1,5 +1,6 @@
 
 import click
+from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')

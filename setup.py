@@ -9,12 +9,12 @@ requirements = [
                 'scipy',
                 'matplotlib',
                 'xarray',
-                'codex-africanus[complete] >= 0.2.10',
                 'zarr',
                 'pyscilog >= 0.1.2',
                 'Click',
                 'omegaconf',
                 'dask',
+                'dask[array]',
             ]
 
 
