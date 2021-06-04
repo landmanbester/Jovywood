@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from africanus.gps.utils import abs_diff
 from numba import jit
 from scipy.optimize import fmin_l_bfgs_b as fmin
 
