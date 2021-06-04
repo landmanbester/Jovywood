@@ -3,6 +3,7 @@ import xarray as xr
 from numba import jit
 from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
+from astropy.io import fits
 
 def init_datetime(dtime):
     date, time = dtime.split('T')
