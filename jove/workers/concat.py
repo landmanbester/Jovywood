@@ -32,7 +32,7 @@ def concat(**kw):
     import numpy as np
     from astropy.io import fits
     from datetime import datetime
-    from jove.utils import load_fits
+    from jove.utils import load_fits, init_datetime
 
     nimages = len(args.image)
     assert len(args.image) == len(args.resid)
