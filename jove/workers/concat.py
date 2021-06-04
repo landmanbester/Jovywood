@@ -7,9 +7,9 @@ pyscilog.init('jove')
 log = pyscilog.get_logger('CONCAT')
 
 @cli.command()
-@click.option('-i', '--image',
+@click.option('-i', '--image', nargs=112,
               help="List of paths to restored images.fits")
-@click.option('-r', '--resid',
+@click.option('-r', '--resid', nargs=112,
               help="List of paths to residual images.fits")
 @click.option('-o', '--output',
               help="Base name of output file")
