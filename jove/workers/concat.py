@@ -115,4 +115,4 @@ def concat(**kw):
               'decs': (('time',), decs)}
 
     D = xr.Dataset(data_vars, coords)
-    D.to_zarr(args.outfile)
+    D.to_zarr(args.outfile, mode='w')
