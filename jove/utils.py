@@ -114,7 +114,7 @@ def dZdtheta(theta, xxsq, y, Sigma):
 
     return Z, dZ
 
-def fit_pix(image, xxsq, xxpsq, Sigma, sigman0, inflate_noise):
+def fit_pix(image, xxsq, Sigma, sigman0):
     return _fit_pix(image[0], xxsq, xxpsq, Sigma, sigman0, inflate_noise)
 
 def _fit_pix(image, xxsq, Sigma, sigman0):
