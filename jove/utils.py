@@ -5,6 +5,18 @@ from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
 from astropy.io import fits
 
+def to4d(data):
+    if data.ndim == 4:
+        return data
+    elif data.ndim == 2:
+        return data[None, None]
+    elif data.ndim == 3:
+        return data[None]
+    elif data.ndim == 1:
+        return data[None, None, None]
+    else:
+        raise ValueError("Only arrays with ndim <= 4 can be broadcast to 4D.")
+
 def init_datetime(dtime):
     date, time = dtime.split('T')
     year, month, day = date.split('-')
