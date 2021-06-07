@@ -139,10 +139,14 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
             y = np.ascontiguousarray(image[:, i, j])
             theta0 = np.array([np.std(y), 0.025, sigman0])
 
-            theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
-                                      bounds=((1e-5, None), (1e-4, None), (0.1, 100)))
+            try:
+                theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
+                                          bounds=((1e-5, None), (1e-4, None), (0.1, 100)),
+                                          factr=1e7, pgtol=1e-4)
 
-            thetas[:, i, j] = theta
+                thetas[:, i, j] = theta
+            except:
+                thetas[:, i, j] = np.ones(3)
 
     return thetas
 
