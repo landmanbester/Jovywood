@@ -13,7 +13,7 @@ log = pyscilog.get_logger('CONCAT')
               help="List of paths to residual images.fits")
 @click.option('-o', '--outfile',
               help="Base name of output file")
-@click.option('-pc', '--pix-chunks',
+@click.option('-pc', '--pix-chunks', type=int, default=50,
               help="Pixel chunks")
 def concat(**kw):
     '''
