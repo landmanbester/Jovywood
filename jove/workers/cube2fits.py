@@ -11,10 +11,10 @@ log = pyscilog.get_logger('FIT')
               help="Path to data.zarr")
 @click.option("-o", "--outfile", type=str, required=True,
               help='Base name of output file.')
-@click.option("-pc", "--pix_chunks", type=int, default=50,
-              help='Pixel chunks')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
+@click.option('-cell', '--cell-size', type=float, default=1.0,
+              help='Cell size in degrees.')
 def fit(**kw):
     '''
     Fit hyperparameters for each pixel and write it out as a zarr array
@@ -36,43 +36,33 @@ def fit(**kw):
     os.environ["NUMBA_NUM_THREADS"] = str(1)
     import numpy as np
     import xarray as xr
-    from jove.utils import abs_diff
     import dask.array as da
     import dask
     from dask.diagnostics import ProgressBar
-    from jove.utils import fit_pix
+    from jove.utils import fitsmovie
 
     from multiprocessing.pool import Pool
     with Pool(processes=args.nthreads) as pool:
         dask.config.set(pool=pool)
 
-        Din = xr.open_dataset(args.data, chunks={'time':-1, 'nx':args.pix_chunks, 'ny':args.pix_chunks}, engine='zarr')
+        Din = xr.open_dataset(args.data, chunks={'time':1, 'nx':-1, 'ny':-1}, engine='zarr')
 
         image = Din.image.data
-        rmss = Din.rmss.data
+        ras = Din.ras.data
+        decs = Din.decs.data
         times = Din.times.data
 
-        nt, nx, ny = image.shape
-
-        # normalise to between 0 and 1
-        t = times - times.min()
-        t = t/t.max()
-
-        # precompute abs diffs
-        xxsq = abs_diff(t, t)
-
-        Sigma = rmss**2
-        sigman0 = 1.0
-
-        thetas = da.blockwise(
-            fit_pix, 'pxy',
+        name, image, ras, decs, times, freqs, cell_size
+        da.blockwise(
+            fitsmovie, None,
+            args.outfile, None,
             image, 'txy',
-            xxsq, None,
-            Sigma, None,
-            sigman0, None,
-            new_axes={"p": 3},
-            align_arrays=False,
-            dtype=image.dtype
+            ras, None,
+            decs, None,
+            times, None,
+            np.ones(1),
+            args.cell_size,
+            dtype=None
         )
 
         data_vars = {'theta':(('three', 'nx', 'ny'), thetas)}

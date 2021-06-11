@@ -6,7 +6,7 @@ pyscilog.init('jove')
 log = pyscilog.get_logger('EXTRACT')
 
 @cli.command()
-@click.option("-d", "--data", type=str,
+@click.option("-d", "--data", type=str, required=True,
                    help="Path to data.zarr")
 @click.option('-t0', '--t0', type=int, default=0)
 @click.option('-tf', '--tf', type=int, default=-1)
@@ -14,7 +14,7 @@ log = pyscilog.get_logger('EXTRACT')
 @click.option('-xf', '--xf', type=int)
 @click.option('-y0', '--y0', type=int)
 @click.option('-yf', '--yf', type=int)
-@click.option('-o', '--output',
+@click.option('-o', '--output', required=True,
               help="Base name of output file")
 @click.option('-pc', '--pix-chunks',
               help="Pixel chunks")

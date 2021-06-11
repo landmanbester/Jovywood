@@ -4,6 +4,21 @@ from numba import jit
 from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
 from astropy.io import fits
+from astropy.wcs import WCS
+
+def to5d(data):
+    if data.ndim == 5:
+        return data
+    elif data.ndim == 4:
+        return data[None]
+    elif data.ndim == 3:
+        return data[None, None]
+    elif data.ndim == 2:
+        return data[None, None, None]
+    elif data.ndim == 1:
+        return data[None, None, None, None]
+    else:
+        raise ValueError("Only arrays with ndim <= 5 can be broadcast to 5D.")
 
 def to4d(data):
     if data.ndim == 4:
@@ -29,15 +44,17 @@ def load_fits(name, dtype=np.float32):
     data = np.transpose(to4d(data)[:, :, ::-1], axes=(0, 1, 3, 2))
     return np.require(data, dtype=dtype, requirements='C')
 
-
-def save_fits(name, data, hdr, overwrite=True, dtype=np.float32):
+def save_fits(name, data, hdr, overwrite=True, dtype=np.float32, ndim=4):
     hdu = fits.PrimaryHDU(header=hdr)
-    data = np.transpose(to4d(data), axes=(0, 1, 3, 2))[:, :, ::-1]
+    if ndim == 4:
+        data = np.transpose(to4d(data), axes=(0, 1, 3, 2))[:, :, ::-1]
+    elif ndim == 5:
+        data = np.transpose(to4d(data), axes=(0, 1, 2, 4, 3))[:, :, :, ::-1]
     hdu.data = np.require(data, dtype=dtype, requirements='F')
     hdu.writeto(name, overwrite=overwrite)
 
 
-def set_wcs(cell_x, cell_y, nx, ny, radec, freq, unit='Jy/beam'):
+def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
     """
     cell_x/y - cell sizes in degrees
     nx/y - number of x and y pixels
@@ -45,8 +62,8 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, unit='Jy/beam'):
     freq - frequencies in Hz
     """
 
-    w = WCS(naxis=4)
-    w.wcs.ctype = ['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES']
+    w = WCS(naxis=5)
+    w.wcs.ctype = ['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES', 'TIME']
     w.wcs.cdelt[0] = -cell_x
     w.wcs.cdelt[1] = cell_y
     w.wcs.cdelt[3] = 1
@@ -57,13 +74,16 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, unit='Jy/beam'):
         ref_freq = freq[0]
     else:
         ref_freq = freq
-    w.wcs.crval = [radec[0]*180.0/np.pi, radec[1]*180.0/np.pi, ref_freq, 1]
-    w.wcs.crpix = [1 + nx//2, 1 + ny//2, 1, 1]
+    if np.size(time) > 1:
+        ref_time = time[0]
+    else:
+        ref_time = time
+
+    w.wcs.crval = [radec[0]*180.0/np.pi, radec[1]*180.0/np.pi, ref_freq, 1, ref_time]
+    w.wcs.crpix = [1 + nx//2, 1 + ny//2, 1, 1, 1]
 
     if np.size(freq) > 1:
-        w.wcs.crval[2] = freq[0]
-        df = freq[1]-freq[0]
-        w.wcs.cdelt[2] = df
+        w.wcs.cdelt[2] = freq[1]-freq[0]
         fmean = np.mean(freq)
     else:
         if isinstance(freq, np.ndarray):
@@ -71,9 +91,12 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, unit='Jy/beam'):
         else:
             fmean = freq
 
+    if np.size(time) > 1:
+        w.wcs.cdelt[4] = time[1]-time[0]
+
     header = w.to_header()
     header['RESTFRQ'] = fmean
-    header['ORIGIN'] = 'pfb-clean'
+    header['ORIGIN'] = 'Jovywood'
     header['BTYPE'] = 'Intensity'
     header['BUNIT'] = unit
     header['SPECSYS'] = 'TOPOCENT'
@@ -229,22 +252,27 @@ def test_gpr():
     theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
                               bounds=((1e-3, None), (1e-3, None), (1e-3, None)))
                               # factr=1e9, pgtol=1e-4)
-    print(time() - ti)
-    print(theta)
-    print(fval)
-    print(dinfo)
 
-    # theta[1] = 2*theta[1]
+    K = theta[0]**2*np.exp(-xxsq/(2*theta[1]**2))
+    Ky = K + np.diag(Sigma) * 2 * theta[2]**2
+    xxpsq = abs_diff(tp, t)
+    Kp = theta[0]**2*np.exp(-xxpsq/(2*theta[1]**2))
+    fp = Kp.dot(np.linalg.solve(Ky, y))
 
-    # K = theta[0]**2*np.exp(-xxsq/(2*theta[1]**2))
-    # Ky = K + np.diag(Sigma) * 2 * theta[2]**2
-    # xxpsq = abs_diff(tp, t)
-    # Kp = theta[0]**2*np.exp(-xxpsq/(2*theta[1]**2))
-    # fp = Kp.dot(np.linalg.solve(Ky, y))
+    import matplotlib.pyplot as plt
 
-    # import matplotlib.pyplot as plt
+    plt.plot(t, f, 'k')
+    plt.plot(tp, fp, 'b')
+    plt.errorbar(t, y, np.sqrt(Sigma)*theta[2], fmt='xr')
+    plt.show()
 
-    # plt.plot(t, f, 'k')
-    # plt.plot(tp, fp, 'b')
-    # plt.errorbar(t, y, np.sqrt(Sigma)*theta[2], fmt='xr')
-    # plt.show()
+def fitsmovie(name, image, ras, decs, times, freqs, cell_size):
+    return _fitsmovie(name, image[0][0][0], ras, decs, times, freqs, cell_size)
+
+def _fitsmovie(name, image, ras, decs, times, freqs, cell_size):
+    ntime, nx, ny = image.shape
+
+    for i in range(ntime):
+        radec = (ras[i], decs[i])
+        hdr = set_wcs(cell_size, cell_size, nx, ny, radec, freqs, times[i])
+        save_fits(name + str(i) + '.fits', image[i], hdr, ndim=5)

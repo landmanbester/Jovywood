@@ -7,17 +7,17 @@ pyscilog.init('jove')
 log = pyscilog.get_logger('INTERP')
 
 @cli.command()
-@click.option("-d", "--data", type=str,
+@click.option("-d", "--data", type=str, required=True,
               help="Path to data.zarr")
-@click.option("-h", "--hypers", type=str,
+@click.option("-h", "--hypers", type=str, required=True,
               help="Path to hypers.zarr")
-@click.option("-o", "--outfile", type=str, default='pfb',
+@click.option("-o", "--outfile", type=str, required=True,
               help='Base name of output file.')
 @click.option("-pc", "--pix-chunks", type=int, default=50,
               help='Pixel chunks')
 @click.option("-poc", "--pix-out-chunks", type=int, default=50,
               help='Pixel chunks')
-@click.option('-nto', "--ntime-out", type=int,
+@click.option('-nto', "--ntime-out", type=int, required=True,
               help="Number of output times")
 @click.option('-os', "--oversmooth", type=int, default=2,
               help="Over-smoothing factor.")
