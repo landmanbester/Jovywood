@@ -19,8 +19,6 @@ log = pyscilog.get_logger('INTERP')
               help='Pixel chunks')
 @click.option('-nto', "--ntime-out", type=int,
               help="Number of output times")
-@click.option('-dur', "--duration", type=float, default=5,
-              help="Duration of gif in ms")
 @click.option('-os', "--oversmooth", type=int, default=2,
               help="Over-smoothing factor.")
 @click.option('-nthreads', '--nthreads', type=int, default=64,
@@ -45,7 +43,6 @@ def interp(**kw):
     os.environ["VECLIB_MAXIMUM_THREADS"] = str(1)
     os.environ["NUMBA_NUM_THREADS"] = str(1)
     import numpy as np
-    from scipy.interpolate
     import xarray as xr
     from jove.utils import abs_diff
     import dask.array as da
@@ -116,7 +113,7 @@ def interp(**kw):
                                     'nx':args.pix_out_chunks,
                                     'ny':args.pix_out_chunks}))}
     coords = {'times': (('time',), tout),
-                'ras': (('time'), rasout)),
+                'ras': (('time'), rasout),
                 'decs': (('time'), decsout)}
 
     Dout = xr.Dataset(data_vars, coords)
