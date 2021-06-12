@@ -65,9 +65,9 @@ def interp(**kw):
 
     image = Din.image.data
     rmss = Din.rmss.data
-    times = Din.times.data
-    ras = Din.ras.data
-    decs = Din.decs.data
+    times = Din.times.data.compute()
+    ras = Din.ras.data.compute()
+    decs = Din.decs.data.compute()
 
     thetas = xr.open_dataset(args.hypers, chunks={'time':-1,
                                                     'nx':args.pix_chunks,
