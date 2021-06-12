@@ -109,9 +109,7 @@ def interp(**kw):
     decsout = da.from_array(decso(tp), chunks=1)
 
     data_vars = {'image':(('time', 'nx', 'ny'),
-                 image_out.rechunk({'time':1,
-                                    'nx':args.pix_out_chunks,
-                                    'ny':args.pix_out_chunks}))}
+                 image_out.rechunk((1, args.pix_out_chunks, args.pix_out_chunk})))}
     coords = {'times': (('time',), tout),
                 'ras': (('time'), rasout),
                 'decs': (('time'), decsout)}
