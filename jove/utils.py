@@ -6,6 +6,7 @@ from datetime import datetime
 from astropy.io import fits
 from astropy.wcs import WCS
 
+
 def to5d(data):
     if data.ndim == 5:
         return data
@@ -20,6 +21,7 @@ def to5d(data):
     else:
         raise ValueError("Only arrays with ndim <= 5 can be broadcast to 5D.")
 
+
 def to4d(data):
     if data.ndim == 4:
         return data
@@ -32,6 +34,7 @@ def to4d(data):
     else:
         raise ValueError("Only arrays with ndim <= 4 can be broadcast to 4D.")
 
+
 def init_datetime(dtime):
     date, time = dtime.split('T')
     year, month, day = date.split('-')
@@ -39,10 +42,12 @@ def init_datetime(dtime):
     second, microsecond = second.split('.')
     return datetime(int(year), int(month), int(day), int(hour), int(minute), int(second)).timestamp()
 
+
 def load_fits(name, dtype=np.float32):
     data = fits.getdata(name)
     data = np.transpose(to4d(data)[:, :, ::-1], axes=(0, 1, 3, 2))
     return np.require(data, dtype=dtype, requirements='C')
+
 
 def save_fits(name, data, hdr, overwrite=True, dtype=np.float32, ndim=4):
     hdu = fits.PrimaryHDU(header=hdr)
@@ -113,6 +118,7 @@ def diag_dot(A, B):
             C[i] += A[i, j] * B[j, i]
     return C
 
+
 @jit(nopython=True, nogil=True, cache=True)
 def dZdtheta(theta, xxsq, y, Sigma):
     '''
@@ -151,8 +157,10 @@ def dZdtheta(theta, xxsq, y, Sigma):
 
     return Z, dZ
 
+
 def fit_pix(image, xxsq, Sigma, sigman0):
     return _fit_pix(image[0], xxsq, Sigma, sigman0)
+
 
 def _fit_pix(image, xxsq, Sigma, sigman0):
     nt, nx, ny = image.shape
@@ -173,15 +181,13 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
 
     return thetas
 
-@jit(nopython=True, nogil=True, cache=True, inline='always')
-def _interp_pix(theta, xxsq, xxpsq, y, Sigma, oversmooth):
-    K = theta[0]**2*np.exp(-xxsq/(2*theta[1]**2))
-    Ky = K + np.diag(Sigma) * oversmooth * theta[2]**2
-    Kp = theta[0]**2*np.exp(-xxpsq/(2*theta[1]**2))
-    return Kp.dot(np.linalg.solve(Ky, y))
 
-@jit(nopython=True, nogil=True, cache=True)
 def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
+    return _interp_pix(thetas[0], image, xxsq, xxpsq, Sigma, oversmooth)
+
+
+@jit(nopython=True, nogil=True, cache=True, inline='always')
+def _interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     _, nx, ny = thetas.shape
     ntout = xxpsq.shape[0]
     imagep = np.zeros((ntout, nx, ny))
@@ -189,9 +195,13 @@ def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
         for j in range(ny):
             y = image[:, i, j]
             theta = thetas[:, i, j]
-            imagep[:, i, j] = _interp_pix(theta, xxsq, xxpsq, y, Sigma, oversmooth)
+            K = theta[0]**2*np.exp(-xxsq/(2*theta[1]**2))
+            Ky = K + np.diag(Sigma) * oversmooth * theta[2]**2
+            Kp = theta[0]**2*np.exp(-xxpsq/(2*theta[1]**2))
+            imagep[:, i, j] = Kp.dot(np.linalg.solve(Ky, y))
 
     return imagep
+
 
 def abs_diff(x, xp):
     """
