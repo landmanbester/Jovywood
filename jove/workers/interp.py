@@ -72,7 +72,7 @@ def interp(**kw):
     thetas = xr.open_dataset(args.hypers, chunks={'time':-1,
                                                     'nx':args.pix_chunks,
                                                     'ny':args.pix_chunks},
-                                                    engine='zarr').thetas.data
+                                                    engine='zarr').theta.data
 
     ntime, nx, ny = image.shape
 
