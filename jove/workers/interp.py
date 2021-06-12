@@ -19,7 +19,7 @@ log = pyscilog.get_logger('INTERP')
               help='Pixel chunks')
 @click.option('-nto', "--ntime-out", type=int, required=True,
               help="Number of output times")
-@click.option('-os', "--oversmooth", type=int, default=2,
+@click.option('-os', "--oversmooth", type=float, default=1,
               help="Over-smoothing factor.")
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
