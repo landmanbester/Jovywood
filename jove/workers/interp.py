@@ -101,6 +101,7 @@ def interp(**kw):
         Sigma, None,
         args.oversmooth, None,
         align_arrays=False,
+        adjust_chunks={'t': args.ntime_out},
         dtype=image.dtype
     )
 
