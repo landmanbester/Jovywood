@@ -116,7 +116,8 @@ def interp(**kw):
                 'decs': (('time'), decsout)}
 
     Dout = xr.Dataset(data_vars, coords)
-    Dout.to_zarr(args.outfile + '_hypers.zarr', mode='w', compute=True)
+    with ProgressBar():
+        Dout.to_zarr(args.outfile + '_os' + str(args.oversmooth) + '.zarr', mode='w', compute=True)
 
     # print('2png')
     # imgs = []

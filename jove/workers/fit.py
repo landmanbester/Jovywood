@@ -11,7 +11,9 @@ log = pyscilog.get_logger('FIT')
               help="Path to data.zarr")
 @click.option("-o", "--outfile", type=str, required=True,
               help='Base name of output file.')
-@click.option("-pc", "--pix_chunks", type=int, default=50,
+@click.option("-pc", "--pix_chunks", type=int, default=1000,
+              help='Pixel chunks')
+@click.option("-poc", "--pix-out-chunks", type=int, default=100,
               help='Pixel chunks')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
@@ -75,7 +77,8 @@ def fit(**kw):
             dtype=image.dtype
         )
 
-        data_vars = {'theta':(('three', 'nx', 'ny'), thetas)}
+        data_vars = {'theta':(('three', 'nx', 'ny'),
+                     thetas.rechunk((3, args.pix_out_chunks, args.pix_out_chunks)))}
 
         Dout = xr.Dataset(data_vars)
 
