@@ -53,15 +53,18 @@ def cube2fits(**kw):
         times = Din.times.data
         idx = da.arange(times.size, chunks=times.chunks)
 
-        da.blockwise(
-            fitsmovie, None,
-            args.outfile, None,
-            image, 'txy',
-            ras, 't',
-            decs, 't',
-            times, 't',
-            np.ones(1), None,
-            args.cell_size, None,
-            idx, 't',
-            dtype=None
+        t = da.blockwise(
+                fitsmovie, 't',
+                args.outfile, None,
+                image, 'txy',
+                ras, 't',
+                decs, 't',
+                times, 't',
+                np.ones(1), None,
+                args.cell_size, None,
+                idx, 't',
+                dtype=times.dtype
         )
+
+        with ProgressBar:
+            dask.compute(t)

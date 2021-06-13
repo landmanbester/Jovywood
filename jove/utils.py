@@ -243,7 +243,7 @@ def abs_diff(x, xp):
 
 
 def fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
-    return _fitsmovie(name, image[0][0][0], ras[0], decs[0], times[0], freqs, cell_size, idx[0])
+    return _fitsmovie(name, image[0][0], ras, decs, times, freqs, cell_size, idx)
 
 
 def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
@@ -253,3 +253,5 @@ def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
         radec = (ras[i], decs[i])
         hdr = set_wcs(cell_size, cell_size, nx, ny, radec, freqs, times[i])
         save_fits(name + str(idx[i]) + '.fits', image[i], hdr, ndim=5)
+
+    return times
