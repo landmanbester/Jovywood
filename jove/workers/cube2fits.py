@@ -4,7 +4,7 @@ from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
-log = pyscilog.get_logger('FIT')
+log = pyscilog.get_logger('CUBE2FITS')
 
 @cli.command()
 @click.option("-d", "--data", type=str, required=True,
@@ -53,7 +53,6 @@ def cube2fits(**kw):
         times = Din.times.data
         idx = da.arange(times.size, chunks=times.chunks)
 
-        name, image, ras, decs, times, freqs, cell_size
         da.blockwise(
             fitsmovie, None,
             args.outfile, None,
