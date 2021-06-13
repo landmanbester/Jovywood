@@ -51,23 +51,18 @@ def fit(**kw):
         ras = Din.ras.data
         decs = Din.decs.data
         times = Din.times.data
+        idx = da.arange(times.size, chunks=times.chunks)
 
         name, image, ras, decs, times, freqs, cell_size
         da.blockwise(
             fitsmovie, None,
             args.outfile, None,
             image, 'txy',
-            ras, None,
-            decs, None,
-            times, None,
-            np.ones(1),
-            args.cell_size,
+            ras, 't',
+            decs, 't',
+            times, 't',
+            np.ones(1), None,
+            args.cell_size, None,
+            idx, 't',
             dtype=None
         )
-
-        data_vars = {'theta':(('three', 'nx', 'ny'), thetas)}
-
-        Dout = xr.Dataset(data_vars)
-
-        with ProgressBar():
-            Dout.to_zarr(args.outfile + '_hypers.zarr', mode='w', compute=True)

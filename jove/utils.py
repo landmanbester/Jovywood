@@ -242,14 +242,14 @@ def abs_diff(x, xp):
     return np.linalg.norm(xD - xpD, axis=0)
 
 
-def fitsmovie(name, image, ras, decs, times, freqs, cell_size):
-    return _fitsmovie(name, image[0][0][0], ras, decs, times, freqs, cell_size)
+def fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
+    return _fitsmovie(name, image[0][0][0], ras[0], decs[0], times[0], freqs, cell_size, idx[0])
 
 
-def _fitsmovie(name, image, ras, decs, times, freqs, cell_size):
+def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
     ntime, nx, ny = image.shape
 
     for i in range(ntime):
         radec = (ras[i], decs[i])
         hdr = set_wcs(cell_size, cell_size, nx, ny, radec, freqs, times[i])
-        save_fits(name + str(i) + '.fits', image[i], hdr, ndim=5)
+        save_fits(name + str(idx[i]) + '.fits', image[i], hdr, ndim=5)
