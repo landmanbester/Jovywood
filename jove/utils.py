@@ -84,7 +84,7 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
     else:
         ref_time = time
 
-    w.wcs.crval = [radec[0]*180.0/np.pi, radec[1]*180.0/np.pi, ref_freq, 1, ref_time]
+    w.wcs.crval = [radec[0], radec[1], ref_freq, 1, ref_time]
     w.wcs.crpix = [1 + nx//2, 1 + ny//2, 1, 1, 1]
 
     if np.size(freq) > 1:
@@ -107,6 +107,24 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
     header['SPECSYS'] = 'TOPOCENT'
 
     return header
+
+
+def abs_diff(x, xp):
+    try:
+        N, D = x.shape
+        Np, D = xp.shape
+    except Exception:
+        N = x.size
+        D = 1
+        Np = xp.size
+        x = np.reshape(x, (N, D))
+        xp = np.reshape(xp, (Np, D))
+    xD = np.zeros([D, N, Np])
+    xpD = np.zeros([D, N, Np])
+    for i in range(D):
+        xD[i] = np.tile(x[:, i], (Np, 1)).T
+        xpD[i] = np.tile(xp[:, i], (N, 1))
+    return np.linalg.norm(xD - xpD, axis=0)
 
 
 @jit(nopython=True, nogil=True, cache=True, inline='always')
@@ -203,45 +221,6 @@ def _interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     return imagep
 
 
-def abs_diff(x, xp):
-    """
-    Gets matrix of differences between
-    :math:`D`-dimensional vectors x and xp
-    i.e.
-
-    .. math::
-        X_{ij} = |x_i - x_j|
-
-    Parameters
-    ----------
-    x : :class:`numpy.ndarray`
-        Array of inputs of shape :code:`(N, D)`.
-    xp : :class:`numpy.ndarray`
-        Array of inputs of shape :code:`(Np, D)`.
-
-    Returns
-    -------
-    XX : :class:`numpy.ndarray`
-        Array of differences of shape :code:`(N, Np)`.
-
-    """
-    try:
-        N, D = x.shape
-        Np, D = xp.shape
-    except Exception:
-        N = x.size
-        D = 1
-        Np = xp.size
-        x = np.reshape(x, (N, D))
-        xp = np.reshape(xp, (Np, D))
-    xD = np.zeros([D, N, Np])
-    xpD = np.zeros([D, N, Np])
-    for i in range(D):
-        xD[i] = np.tile(x[:, i], (Np, 1)).T
-        xpD[i] = np.tile(xp[:, i], (N, 1))
-    return np.linalg.norm(xD - xpD, axis=0)
-
-
 def fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
     return _fitsmovie(name, image[0][0], ras, decs, times, freqs, cell_size, idx)
 
@@ -252,6 +231,6 @@ def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
     for i in range(ntime):
         radec = (ras[i], decs[i])
         hdr = set_wcs(cell_size, cell_size, nx, ny, radec, freqs, times[i])
-        save_fits(name + str(idx[i]) + '.fits', image[i], hdr, ndim=5)
+        save_fits(name + str(idx[i]) + '.fits', image[i], hdr, dtype=np.float32, ndim=5)
 
     return times
