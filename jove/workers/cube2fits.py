@@ -66,5 +66,5 @@ def cube2fits(**kw):
                 dtype=times.dtype
         )
 
-        with ProgressBar:
+        with ProgressBar():
             dask.compute(t)
