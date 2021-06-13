@@ -15,7 +15,7 @@ log = pyscilog.get_logger('FIT')
               help='Number of dask threads.')
 @click.option('-cell', '--cell-size', type=float, default=1.0,
               help='Cell size in degrees.')
-def fit(**kw):
+def cube2fits(**kw):
     '''
     Fit hyperparameters for each pixel and write it out as a zarr array
     '''
