@@ -54,7 +54,7 @@ def save_fits(name, data, hdr, overwrite=True, dtype=np.float32, ndim=4):
     if ndim == 4:
         data = np.transpose(to4d(data), axes=(0, 1, 3, 2))[:, :, ::-1]
     elif ndim == 5:
-        data = np.transpose(to4d(data), axes=(0, 1, 2, 4, 3))[:, :, :, ::-1]
+        data = np.transpose(to5d(data), axes=(0, 1, 2, 4, 3))[:, :, :, ::-1]
     hdu.data = np.require(data, dtype=dtype, requirements='F')
     hdu.writeto(name, overwrite=overwrite)
 
