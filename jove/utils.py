@@ -80,7 +80,7 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, t0, unit='Jy/beam'):
     header['BTYPE'] = 'Intensity'
     header['BUNIT'] = unit
     header['SPECSYS'] = 'TOPOCENT'
-    header['DATE-OBS'] = datetime.utcfromtimestamp(t0)
+    header['DATE-OBS'] = str(datetime.utcfromtimestamp(t0))
 
     return header
 
