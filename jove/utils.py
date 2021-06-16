@@ -49,7 +49,7 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, t0, unit='Jy/beam'):
     freq - frequencies in Hz
     """
 
-    w = WCS(naxis=5)
+    w = WCS(naxis=4)
     w.wcs.ctype = ['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES']
     w.wcs.cdelt[0] = -cell_x
     w.wcs.cdelt[1] = cell_y
