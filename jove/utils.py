@@ -61,13 +61,9 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, t0, unit='Jy/beam'):
         ref_freq = freq[0]
     else:
         ref_freq = freq
-    if np.size(time) > 1:
-        ref_time = time[0]
-    else:
-        ref_time = time
 
-    w.wcs.crval = [radec[0], radec[1], ref_freq, 1, ref_time]
-    w.wcs.crpix = [1 + nx//2, 1 + ny//2, 1, 1, 1]
+    w.wcs.crval = [radec[0], radec[1], ref_freq, 1]
+    w.wcs.crpix = [1 + nx//2, 1 + ny//2, 1, 1]
 
     if np.size(freq) > 1:
         w.wcs.cdelt[2] = freq[1]-freq[0]
