@@ -221,6 +221,6 @@ def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
     for i in range(ntime):
         radec = (ras[i], decs[i])
         hdr = set_wcs(cell_size, cell_size, nx, ny, radec, freqs, times[i])
-        save_fits(f"{name}{idx[i]:04d}.fits", image[i], hdr, dtype=np.float32, ndim=5)
+        save_fits(f"{name}{idx[i]:04d}.fits", image[i], hdr, dtype=np.float32)
 
     return times
