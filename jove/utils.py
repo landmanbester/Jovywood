@@ -7,21 +7,6 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 
-def to5d(data):
-    if data.ndim == 5:
-        return data
-    elif data.ndim == 4:
-        return data[None]
-    elif data.ndim == 3:
-        return data[None, None]
-    elif data.ndim == 2:
-        return data[None, None, None]
-    elif data.ndim == 1:
-        return data[None, None, None, None]
-    else:
-        raise ValueError("Only arrays with ndim <= 5 can be broadcast to 5D.")
-
-
 def to4d(data):
     if data.ndim == 4:
         return data
@@ -49,17 +34,14 @@ def load_fits(name, dtype=np.float32):
     return np.require(data, dtype=dtype, requirements='C')
 
 
-def save_fits(name, data, hdr, overwrite=True, dtype=np.float32, ndim=4):
+def save_fits(name, data, hdr, overwrite=True, dtype=np.float32):
     hdu = fits.PrimaryHDU(header=hdr)
-    if ndim == 4:
-        data = np.transpose(to4d(data), axes=(0, 1, 3, 2))[:, :, ::-1]
-    elif ndim == 5:
-        data = np.transpose(to5d(data), axes=(0, 1, 2, 4, 3))[:, :, :, ::-1]
+    data = np.transpose(to4d(data), axes=(0, 1, 3, 2))[:, :, ::-1]
     hdu.data = np.require(data, dtype=dtype, requirements='F')
     hdu.writeto(name, overwrite=overwrite)
 
 
-def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
+def set_wcs(cell_x, cell_y, nx, ny, radec, freq, t0, unit='Jy/beam'):
     """
     cell_x/y - cell sizes in degrees
     nx/y - number of x and y pixels
@@ -68,7 +50,7 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
     """
 
     w = WCS(naxis=5)
-    w.wcs.ctype = ['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES', 'TIME']
+    w.wcs.ctype = ['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES']
     w.wcs.cdelt[0] = -cell_x
     w.wcs.cdelt[1] = cell_y
     w.wcs.cdelt[3] = 1
@@ -96,15 +78,13 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, time, unit='Jy/beam'):
         else:
             fmean = freq
 
-    if np.size(time) > 1:
-        w.wcs.cdelt[4] = time[1]-time[0]
-
     header = w.to_header()
     header['RESTFRQ'] = fmean
     header['ORIGIN'] = 'Jovywood'
     header['BTYPE'] = 'Intensity'
     header['BUNIT'] = unit
     header['SPECSYS'] = 'TOPOCENT'
+    header['DATE-OBS'] = datetime.utcfromtimestamp(t0)
 
     return header
 
@@ -180,18 +160,31 @@ def fit_pix(image, xxsq, Sigma, sigman0):
     return _fit_pix(image[0], xxsq, Sigma, sigman0)
 
 
+@jit(nopython=True, nogil=True, cache=True)
+def grid_search(sigmaf, sigman, xxsq, y, Sigma):
+    Zmax = -np.inf
+    theta = np.array([sigmaf, 0.0, sigman])
+    for l in np.arange(0.05, 1, 0.1):
+        theta[1] = l
+        Z, _ = dZdtheta(theta, xxsq, y, Sigma)
+        if Z > Zmax:
+            l0 = l
+    return l0
+
+
 def _fit_pix(image, xxsq, Sigma, sigman0):
     nt, nx, ny = image.shape
     thetas = np.zeros((3, nx, ny))
     for i in range(nx):
         for j in range(ny):
             y = np.ascontiguousarray(image[:, i, j])
-            theta0 = np.array([np.std(y), 0.025, sigman0])
-
+            sigmaf0 = np.std(y)
+            l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+            theta0 = np.array([sigmaf0, l0, sigman0])
             try:
                 theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
                                           bounds=((1e-5, None), (1e-4, None), (0.1, 100)),
-                                          factr=1e7, pgtol=1e-4)
+                                          factr=1e9, pgtol=5e-4)
 
                 thetas[:, i, j] = theta
             except:
