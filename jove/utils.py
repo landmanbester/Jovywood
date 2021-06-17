@@ -57,6 +57,7 @@ def set_wcs(cell_x, cell_y, nx, ny, radec, freq, t0, unit='Jy/beam'):
     w.wcs.cunit[0] = 'deg'
     w.wcs.cunit[1] = 'deg'
     w.wcs.cunit[2] = 'Hz'
+    w.wcs.cunit[3] = unit
     if np.size(freq) > 1:
         ref_freq = freq[0]
     else:

@@ -79,8 +79,7 @@ def interp(**kw):
     # normalise to between 0 and 1
     tmin = times.min()
     tmax = times.max()
-    t = times - times.min()
-    t = t/t.max()
+    t = (times - tmin)/(tmax - tmin)
 
     raso = interp1d(t, ras, kind='cubic', assume_sorted=True)
     decso = interp1d(t, decs, kind='cubic', assume_sorted=True)
@@ -105,7 +104,8 @@ def interp(**kw):
         dtype=image.dtype
     )
 
-    tout = da.from_array(tmin + tp*tmax, chunks=1)
+    tout = tmin + tp*(tmax - tmin)
+    tout = da.from_array(tout, chunks=1)
     rasout = da.from_array(raso(tp), chunks=1)
     decsout = da.from_array(decso(tp), chunks=1)
 
