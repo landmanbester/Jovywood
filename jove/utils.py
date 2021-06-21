@@ -5,6 +5,9 @@ from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
 from astropy.io import fits
 from astropy.wcs import WCS
+import aplpy
+import matplotlib.pyplot as plt
+import os.path
 
 
 def to4d(data):
@@ -160,12 +163,12 @@ def fit_pix(image, xxsq, Sigma, sigman0):
 
 @jit(nopython=True, nogil=True, cache=True)
 def grid_search(sigmaf, sigman, xxsq, y, Sigma):
-    Zmax = -np.inf
+    Zmax = np.inf
     theta = np.array([sigmaf, 0.0, sigman])
     for l in np.arange(0.05, 1, 0.1):
         theta[1] = l
         Z, _ = dZdtheta(theta, xxsq, y, Sigma)
-        if Z > Zmax:
+        if Z < Zmax:
             l0 = l
     return l0
 
@@ -181,12 +184,12 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
             theta0 = np.array([sigmaf0, l0, sigman0])
             try:
                 theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
-                                          bounds=((1e-5, None), (1e-4, None), (0.1, 100)),
+                                          bounds=((1e-5, None), (1e-3, None), (0.1, 100)),
                                           factr=1e9, pgtol=5e-4)
 
                 thetas[:, i, j] = theta
             except:
-                thetas[:, i, j] = np.ones(3)
+                thetas[:, i, j] = np.array([sigmaf0, l0, sigman0])
 
     return thetas
 
@@ -212,11 +215,11 @@ def _interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     return imagep
 
 
-def fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
+def cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
     return _fitsmovie(name, image[0][0], ras, decs, times, freqs, cell_size, idx)
 
 
-def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
+def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
     ntime, nx, ny = image.shape
 
     for i in range(ntime):
@@ -225,3 +228,88 @@ def _fitsmovie(name, image, ras, decs, times, freqs, cell_size, idx):
         save_fits(f"{name}{idx[i]:04d}.fits", image[i], hdr, dtype=np.float32)
 
     return times
+
+
+# def drop2axes(filename, outname):
+#     hdu = fits.open(filename)[0]
+#     for kw in "CTYPE", "CRVAL", "CRPIX", "CDELT", "CUNIT":
+#         for n in 3, 4:
+#             try:
+#                 hdu.header.remove(f"{kw}{n}")
+#             except:
+#                 pass
+#     hdu.header['WCSAXES'] = 2
+#     fits.writeto(outname, hdu.data[0,0]*1000, hdu.header, clobber=True)
+
+
+# def _fits2png(idx, filenames):
+
+#     for i in idx:
+#         filename = filenames[i]
+#         tmpname = filename + 'tmp.fits'
+#         drop2axes(filename, tmpname)
+#         fig0 = plt.figure(figsize=(20, 20))
+#         fig = aplpy.FITSFigure(tmpname, subplot=[0,0,1,1], figure=fig0, dimensions=(0,1), slices=(0,0))
+#         fig.show_colorscale(cmap='jet', vmin=2e-2, vmax=500, stretch='log')
+#         fig.add_colorbar()
+#         fig.colorbar.set_ticks([500, 100, 10, 1, 0.1])
+#         fig.colorbar.set_axis_label_text('mJy/beam')
+#         # fig.show_regions('dd.reg')
+#         fig.add_label(0.99, 0.99, timestamps[filename], relative=True, color='yellow', size=20,
+#                     horizontalalignment='right', verticalalignment='top')
+
+#         xw, yw = fig.pixel2world(5000, 5000)
+#         #fig.recenter(xw, yw, radius=0.25)
+
+#         # Transient inset
+#         fig1 = aplpy.FITSFigure(tmpname, subplot=[0.01,0.016,0.38,0.38], figure=fig0)
+#         fig1.show_colorscale(cmap='jet', vmin=2e-2, vmax=500, stretch='log')
+#         xw1 = (20 + 9/60 + 36.8/3600)*15
+#         yw1 = -20 - 26/60 - 46/3600
+#         fig1.recenter(xw, yw+0.07, radius=0.11)
+#         # fig1.recenter(xw1, yw1, radius=0.11)
+#         fig1.show_circles(xw1, yw1, 30*1/3600, edgecolors=['yellow'])
+#         aplpy.AxisLabels(fig1).hide()
+#         aplpy.Ticks(fig1).hide()
+#         aplpy.TickLabels(fig1).hide()
+#         aplpy.Frame(fig1).set_color('white')
+
+#         # Callisto inset
+#         tmpname = 'tmp.fits'
+#         # filename1 = filename.replace("mean", "win5")
+#         drop2axes(filename, tmpname)
+#         fig2 = aplpy.FITSFigure(tmpname, subplot=[0.01,0.785,0.2,0.2], figure=fig0) # 0.785 0.771
+#         #fig2.show_colorscale(cmap='nipy_spectral', vmin=5e-3, vmax=500, stretch='log')
+#         fig2.show_colorscale(cmap='jet', vmin=1e-2, vmax=5, stretch='log')
+#         xw2, yw2 = fig2.pixel2world(4601, 5101)
+#         fig2.recenter(xw2, yw2, radius=0.12)
+#         #xw2 = 15*(20 + 10/60+ + 03.59/3600)
+#         #yw2 = -1*(20 + 34/60. + 03.3/3600)
+
+#         # Callisto circle around starting position
+#         #fig2.show_circles(xw2, yw2, 30*1/3600, edgecolors=['yellow'])
+#         fig2.show_ellipses(xw2 - 25/3600., yw2, 2./60, 1./60, edgecolor='yellow')
+#         #fig2.show_arrows(xw2 + 25/3600., yw2, 25/3600., 0, edgecolor='yellow')
+
+#         aplpy.AxisLabels(fig2).hide()
+#         aplpy.Ticks(fig2).hide()
+#         aplpy.TickLabels(fig2).hide()
+#         aplpy.Frame(fig2).set_color('white')
+
+#         # Jove zoom
+#         # filename3 = re.sub("im5/s..", "im5/cubes", filename.replace("MFS", "cube"))
+#         fig3 = aplpy.FITSFigure(filename, subplot=[0.68,0.016,0.3,0.3], figure=fig0,
+#                                 slices=[7,0])
+#         fig3._wcs = fig3._wcs.dropaxis(3).dropaxis(2)
+#         fig3.show_colorscale(cmap='jet', vmin=5e-4, vmax=0.15, stretch='log')
+#         fig3.recenter(xw, yw, radius=0.025)
+#         aplpy.AxisLabels(fig3).hide()
+#         aplpy.Ticks(fig3).hide()
+#         aplpy.TickLabels(fig3).hide()
+#         aplpy.Frame(fig3).set_color('white')
+
+
+#         fig0.savefig('output/mfs/png/' + os.path.splitext(os.path.basename(filename))[0] + ".png",
+#                     facecolor='white', edgecolor='none', transparent=False, bbox_inches='tight')
+
+#         plt.close(fig0)

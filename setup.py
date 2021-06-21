@@ -17,6 +17,7 @@ requirements = [
                 'dask',
                 'dask[array]',
                 'astropy',
+                'aplpy',
             ]
 
 

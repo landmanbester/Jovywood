@@ -57,8 +57,9 @@ def fit(**kw):
         nt, nx, ny = image.shape
 
         # normalise to between 0 and 1
-        t = times - times.min()
-        t = t/t.max()
+        tmin = times.min()
+        tmax = times.max()
+        t = (times - tmin)/(tmax - tmin)
 
         # precompute abs diffs
         xxsq = abs_diff(t, t)

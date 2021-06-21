@@ -39,7 +39,7 @@ def cube2fits(**kw):
     import dask.array as da
     import dask
     from dask.diagnostics import ProgressBar
-    from jove.utils import fitsmovie
+    from jove.utils import cube2fits
 
     from multiprocessing.pool import Pool
     with Pool(processes=args.nthreads) as pool:
@@ -54,7 +54,7 @@ def cube2fits(**kw):
         idx = da.arange(times.size, chunks=times.chunks)
 
         t = da.blockwise(
-                fitsmovie, 't',
+                cube2fits, 't',
                 args.outfile, None,
                 image, 'txy',
                 ras, 't',

@@ -13,9 +13,9 @@ log = pyscilog.get_logger('INTERP')
               help="Path to hypers.zarr")
 @click.option("-o", "--outfile", type=str, required=True,
               help='Base name of output file.')
-@click.option("-pc", "--pix-chunks", type=int, default=50,
+@click.option("-pc", "--pix-chunks", type=int, default=1000,
               help='Pixel chunks')
-@click.option("-poc", "--pix-out-chunks", type=int, default=50,
+@click.option("-poc", "--pix-out-chunks", type=int, default=100,
               help='Pixel chunks')
 @click.option('-nto', "--ntime-out", type=int, required=True,
               help="Number of output times")
