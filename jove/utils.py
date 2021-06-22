@@ -131,7 +131,7 @@ def dZdtheta(theta, xxsq, y, Sigma):
     # first the negloglik
     K = sigmaf**2 * np.exp(-xxsq/(2*l**2))
     Ky = K + np.diag(Sigma) * sigman**2
-    u, s, v = np.linalg.svd(Ky)
+    u, s, v = np.linalg.svd(Ky, hermitian=True)
     logdetK = np.sum(np.log(s))
     Kyinv = u.dot(v/s.reshape(N, 1))
     alpha = Kyinv.dot(y)
@@ -180,7 +180,11 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
         for j in range(ny):
             y = np.ascontiguousarray(image[:, i, j])
             sigmaf0 = np.std(y)
-            l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+            try:
+                l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+            except:
+                l0 = 0.5
+
             theta0 = np.array([sigmaf0, l0, sigman0])
             try:
                 theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
@@ -189,7 +193,7 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
 
                 thetas[:, i, j] = theta
             except:
-                thetas[:, i, j] = np.array([sigmaf0, l0, sigman0])
+                thetas[:, i, j] = theta0
 
     return thetas
 
