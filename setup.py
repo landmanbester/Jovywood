@@ -18,6 +18,11 @@ requirements = [
                 'dask[array]',
                 'astropy',
                 'aplpy',
+                'ducc0',
+
+                "nifty"
+                "git+https://gitlab.mpcdf.mpg.de/ift/nifty.git"
+                "@NIFTy_7",
             ]
 
 

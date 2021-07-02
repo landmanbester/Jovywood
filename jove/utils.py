@@ -131,7 +131,9 @@ def dZdtheta(theta, xxsq, y, Sigma):
     # first the negloglik
     K = sigmaf**2 * np.exp(-xxsq/(2*l**2))
     Ky = K + np.diag(Sigma) * sigman**2
-    u, s, v = np.linalg.svd(Ky, hermitian=True)
+    # with numba.objmode: # args?
+    #     u, s, v = np.linalg.svd(Ky, hermitian=True)
+    u, s, v = np.linalg.svd(Ky)
     logdetK = np.sum(np.log(s))
     Kyinv = u.dot(v/s.reshape(N, 1))
     alpha = Kyinv.dot(y)
@@ -165,7 +167,7 @@ def fit_pix(image, xxsq, Sigma, sigman0):
 def grid_search(sigmaf, sigman, xxsq, y, Sigma):
     Zmax = np.inf
     theta = np.array([sigmaf, 0.0, sigman])
-    for l in np.arange(0.05, 1, 0.1):
+    for l in np.arange(0.05, 0.65, 0.1):
         theta[1] = l
         Z, _ = dZdtheta(theta, xxsq, y, Sigma)
         if Z < Zmax:
@@ -180,6 +182,8 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
         for j in range(ny):
             y = np.ascontiguousarray(image[:, i, j])
             sigmaf0 = np.std(y)
+
+            # l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
             try:
                 l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
             except:
