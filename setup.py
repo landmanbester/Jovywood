@@ -20,9 +20,13 @@ requirements = [
                 'aplpy',
                 'ducc0',
 
-                "nifty"
-                "git+https://gitlab.mpcdf.mpg.de/ift/nifty.git"
-                "@NIFTy_7",
+                # "nifty"
+                # "@git+https://gitlab.mpcdf.mpg.de/ift/nifty.git"
+                # "@NIFTy_7",
+
+                "pfb-clean"
+                "@git+https://github.com/ratt-ru/pfb-clean.git"
+                "@distribute_convolve",
             ]
 
 
