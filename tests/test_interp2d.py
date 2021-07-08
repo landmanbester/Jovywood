@@ -10,36 +10,44 @@ import matplotlib.pyplot as plt
 
 import nifty7 as ift
 
+"""
+g_ML, invcov
 
-class MaskOperator(ift.LinearOperator):
-    """Implementation of a mask response
+g = exp(amp) exp(i phi)
 
-    Takes a field, applies flags and returns the values of the field in a
-    :class:`UnstructuredDomain`.
+R = S g
+"""
 
-    Parameters
-    ----------
-    flags : Field
-        Is converted to boolean. Where True, the input field is flagged.
-    """
-    def __init__(self, flags):
-        if not isinstance(flags, Field):
-            raise TypeError
-        self._domain = DomainTuple.make(flags.domain)
-        self._flags = np.logical_not(flags.val)
-        self._target = DomainTuple.make(UnstructuredDomain(self._flags.sum()))
-        self._capability = self.TIMES | self.ADJOINT_TIMES
 
-    def apply(self, x, mode):
-        self._check_input(x, mode)
-        x = x.val
-        if mode == self.TIMES:
-            res = x[self._flags]
-            return Field(self.target, res)
-        res = np.empty(self.domain.shape, x.dtype)
-        res[self._flags] = x
-        res[~self._flags] = 0
-        return Field(self.domain, res)
+# class MaskOperator(ift.LinearOperator):
+#     """Implementation of a mask response
+
+#     Takes a field, applies flags and returns the values of the field in a
+#     :class:`UnstructuredDomain`.
+
+#     Parameters
+#     ----------
+#     flags : Field
+#         Is converted to boolean. Where True, the input field is flagged.
+#     """
+#     def __init__(self, flags):
+#         if not isinstance(flags, Field):
+#             raise TypeError
+#         self._domain = DomainTuple.make(flags.domain)
+#         self._flags = np.logical_not(flags.val)
+#         self._target = DomainTuple.make(UnstructuredDomain(self._flags.sum()))
+#         self._capability = self.TIMES | self.ADJOINT_TIMES
+
+#     def apply(self, x, mode):
+#         self._check_input(x, mode)
+#         x = x.val
+#         if mode == self.TIMES:
+#             res = x[self._flags]
+#             return Field(self.target, res)
+#         res = np.empty(self.domain.shape, x.dtype)
+#         res[self._flags] = x
+#         res[~self._flags] = 0
+#         return Field(self.domain, res)
 
 
 def madmask(image):
@@ -138,23 +146,23 @@ def main():
     data = ift.makeField(data_space, data[wgt > 0])
 
 
-    ##### WIENER FILTER solution #####
-    D_inv = R.adjoint @ N.inverse @ R + S.inverse
-    j = R.adjoint_times(N.inverse_times(data))
-    IC = ift.GradientNormController(iteration_limit=500, tol_abs_gradnorm=1e-1)
-    D = ift.InversionEnabler(D_inv, IC, approximation=S.inverse).inverse
-    m = D(j)
+    # ##### WIENER FILTER solution #####
+    # D_inv = R.adjoint @ N.inverse @ R + S.inverse
+    # j = R.adjoint_times(N.inverse_times(data))
+    # IC = ift.GradientNormController(iteration_limit=500, tol_abs_gradnorm=1e-1)
+    # D = ift.InversionEnabler(D_inv, IC, approximation=S.inverse).inverse
+    # m = D(j)
 
-    rg = isinstance(position_space, ift.RGSpace)
-    plot = ift.Plot()
-    filename = "/home/landman/Data/MeerKAT/Jove/dspec/wiener.png"
-    # plot.add(HT(MOCK_SIGNAL), title='Mock Signal')
-    plot.add(Mask.adjoint(data), title='Data', vmin=-0.01, vmax=0.01)
-    plot.add(HT(m), title='Reconstruction', vmin=-0.01, vmax=0.01)
-    plot.add(Mask.adjoint(data) - Mask.adjoint(Mask(HT(m))),
-                title='Residuals', vmin=-0.01, vmax=0.01)
-    plot.output(nx=3, ny=1, xsize=10, ysize=10, name=filename)
-    print("Saved results as '{}'.".format(filename))
+    # rg = isinstance(position_space, ift.RGSpace)
+    # plot = ift.Plot()
+    # filename = "/home/landman/Data/MeerKAT/Jove/dspec/wiener.png"
+    # # plot.add(HT(MOCK_SIGNAL), title='Mock Signal')
+    # plot.add(Mask.adjoint(data), title='Data', vmin=-0.01, vmax=0.01)
+    # plot.add(HT(m), title='Reconstruction', vmin=-0.01, vmax=0.01)
+    # plot.add(Mask.adjoint(data) - Mask.adjoint(Mask(HT(m))),
+    #             title='Residuals', vmin=-0.01, vmax=0.01)
+    # plot.output(nx=3, ny=1, xsize=10, ysize=10, name=filename)
+    # print("Saved results as '{}'.".format(filename))
 
 
     # #### MAP soln + samples with known power spectrum #####
@@ -187,139 +195,127 @@ def main():
     # rg = isinstance(position_space, ift.RGSpace)
     # plot = ift.Plot()
     # filename = "/home/landman/Data/MeerKAT/Jove/dspec/target/map.png"
-    # if rg and len(position_space.shape) == 1:
-    #     plot.add(
-    #         [HT(MOCK_SIGNAL), Mask.adjoint(data),
-    #          HT(m)],
-    #         label=['Mock signal', 'Data', 'Reconstruction'],
-    #         alpha=[1, .3, 1])
-    #     plot.add(Mask.adjoint(Mask(HT(m - MOCK_SIGNAL))), title='Residuals')
-    #     plot.output(nx=2, ny=1, xsize=10, ysize=4, name=filename)
-    # else:
-    #     plot.add(HT(MOCK_SIGNAL), title='Mock Signal')
-    #     plot.add(Mask.adjoint(data), title='Data')
-    #     plot.add(HT(A(H.position)), title='MAP')
-    #     plot.add(sc.mean, title='Mean')
-    #     plot.add(Mask.adjoint(HT(A(H.position) - HT(MOCK_SIGNAL))),
-    #              title='Residuals')
-    #     plot.add(ift.sqrt(sc.var), title='Uncertainty')
-    #     plot.add(Mask.adjoint(MOCK_NOISE), title='Noise')
-    #     plot.add(wgt, title='Weights')
+    # plot.add(HT(MOCK_SIGNAL), title='Mock Signal')
+    # plot.add(Mask.adjoint(data), title='Data')
+    # plot.add(HT(A(H.position)), title='MAP')
+    # plot.add(sc.mean, title='Mean')
+    # plot.add(Mask.adjoint(HT(A(H.position) - HT(MOCK_SIGNAL))),
+    #             title='Residuals')
+    # plot.add(ift.sqrt(sc.var), title='Uncertainty')
+    # plot.add(Mask.adjoint(MOCK_NOISE), title='Noise')
+    # plot.add(wgt, title='Weights')
 
-    #     plot.output(nx=3, ny=3, xsize=10, ysize=10, name=filename)
+    # plot.output(nx=3, ny=3, xsize=10, ysize=10, name=filename)
     # print("Saved results as '{}'.".format(filename))
 
 
-    # ##### Inference with correlated field with unknown power spectrum #####
-    # args = {
-    #     'offset_mean': 0,
-    #     'offset_std': (1e-3, 1e-6),
+    ##### Inference with correlated field with unknown power spectrum #####
+    args = {
+        'offset_mean': 0,
+        'offset_std': (1e-3, 1e-6),
 
-    #     # Amplitude of field fluctuations
-    #     'fluctuations': (1., 0.8),  # 1.0, 1e-2
+        # Amplitude of field fluctuations
+        'fluctuations': (1., 0.8),  # 1.0, 1e-2
 
-    #     # Exponent of power law power spectrum component
-    #     'loglogavgslope': (-3., 1),  # -6.0, 1
+        # Exponent of power law power spectrum component
+        'loglogavgslope': (-3., 1),  # -6.0, 1
 
-    #     # Amplitude of integrated Wiener process power spectrum component
-    #     'flexibility': (2, 1.),  # 1.0, 0.5
+        # Amplitude of integrated Wiener process power spectrum component
+        'flexibility': (2, 1.),  # 1.0, 0.5
 
-    #     # How ragged the integrated Wiener process component is
-    #     'asperity': (0.5, 0.4)  # 0.1, 0.5
-    # }
+        # How ragged the integrated Wiener process component is
+        'asperity': (0.5, 0.4)  # 0.1, 0.5
+    }
 
-    # correlated_field = ift.SimpleCorrelatedField(position_space, **args)
-    # pspec = correlated_field.power_spectrum
+    correlated_field = ift.SimpleCorrelatedField(position_space, **args)
+    pspec = correlated_field.power_spectrum
 
-    # # no non-linearity so signal is correlated field
+    # no non-linearity so signal is correlated field
     # DC = SingleDomain(correlated_field.target, position_space)
-    # signal = DC @ correlated_field
+    signal = correlated_field
 
-    # print(signal.domain)
+    # we mask regions with zero weights
+    mask = np.where(wgt > 0, 0.0, 1.0)
+    mask = ift.makeField(signal.target, mask)
+    Mask = ift.MaskOperator(mask)
 
-    # # we mask regions with zero weights
-    # mask = np.where(wgt > 0, 0.0, 1.0)
-    # mask = ift.makeField(signal.domain, (mask,))
-    # Mask = ift.MaskOperator(mask)
+    R = Mask
 
-    # R = Mask
+    signal_response = R(signal)
 
-    # print(R)
+    # Minimization parameters
+    ic_sampling = ift.AbsDeltaEnergyController(name="Sampling (linear)",
+            deltaE=0.05, iteration_limit=100)
+    ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5,
+            convergence_level=2, iteration_limit=35)
+    minimizer = ift.NewtonCG(ic_newton)
+    ic_sampling_nl = ift.AbsDeltaEnergyController(name='Sampling (nonlin)',
+            deltaE=0.5, iteration_limit=15, convergence_level=2)
+    minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
-    # signal_response = R(signal)
+    # Set up likelihood energy and information Hamiltonian
+    likelihood_energy = (ift.GaussianEnergy(mean=data, inverse_covariance=N.inverse) @
+                         signal_response)
+    H = ift.StandardHamiltonian(likelihood_energy, ic_sampling)
 
-    # # Minimization parameters
-    # ic_sampling = ift.AbsDeltaEnergyController(name="Sampling (linear)",
-    #         deltaE=0.05, iteration_limit=100)
-    # ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5,
-    #         convergence_level=2, iteration_limit=35)
-    # minimizer = ift.NewtonCG(ic_newton)
-    # ic_sampling_nl = ift.AbsDeltaEnergyController(name='Sampling (nonlin)',
-    #         deltaE=0.5, iteration_limit=15, convergence_level=2)
-    # minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+    initial_mean = ift.MultiField.full(H.domain, 0.)
+    mean = initial_mean
 
-    # # Set up likelihood energy and information Hamiltonian
-    # likelihood_energy = (ift.GaussianEnergy(mean=data, inverse_covariance=N.inverse) @
-    #                      signal_response)
-    # H = ift.StandardHamiltonian(likelihood_energy, ic_sampling)
+    mock_position = ift.from_random(signal_response.domain, 'normal')
 
-    # initial_mean = ift.MultiField.full(H.domain, 0.)
-    # mean = initial_mean
+    filename = "/home/landman/Data/MeerKAT/Jove/dspec/setup.png"
+    plot = ift.Plot()
+    plot.add(signal(mock_position), title='Initial sample', zmin = 0, zmax = 1)
+    plot.add(R.adjoint_times(data), title='Data')
+    plot.add([pspec.force(mock_position)], title='Power Spectrum')
+    plot.output(ny=1, nx=3, xsize=24, ysize=6, name=filename)
 
-    # filename = "/home/landman/Data/MeerKAT/Jove/dspec/target/setup.png"
-    # plot = ift.Plot()
-    # plot.add(signal(MOCK_SIGNAL), title='Ground Truth', zmin = 0, zmax = 1)
-    # plot.add(R.adjoint_times(data), title='Data')
-    # plot.add([pspec.force(mock_position)], title='Power Spectrum')
-    # plot.output(ny=1, nx=3, xsize=24, ysize=6, name=filename)
+    # number of samples used to estimate the KL
+    N_samples = 10
 
-    # quit()
+    # Draw new samples to approximate the KL six times
+    filename = "/home/landman/Data/MeerKAT/Jove/dspec/samples_{}.png"
+    for i in range(6):
+        if i==5:
+            # Double the number of samples in the last step for better statistics
+            N_samples = 2*N_samples
+        # Draw new samples and minimize KL
+        KL = ift.GeoMetricKL(mean, H, N_samples, minimizer_sampling, True)
+        KL, convergence = minimizer(KL)
+        mean = KL.position
+        ift.extra.minisanity(data, lambda x: N.inverse, signal_response,
+                             KL.position, KL.samples)
 
-    # # number of samples used to estimate the KL
-    # N_samples = 10
+        # Plot current reconstruction
+        plot = ift.Plot()
+        plot.add(signal(KL.position), title="Latent mean", zmin = 0, zmax = 1)
+        plot.add([pspec.force(KL.position + ss) for ss in KL.samples],
+                 title="Samples power spectrum")
+        plot.output(ny=1, ysize=6, xsize=16,
+                    name=filename.format("loop_{:02d}".format(i)))
 
-    # # Draw new samples to approximate the KL six times
-    # for i in range(6):
-    #     if i==5:
-    #         # Double the number of samples in the last step for better statistics
-    #         N_samples = 2*N_samples
-    #     # Draw new samples and minimize KL
-    #     KL = ift.GeoMetricKL(mean, H, N_samples, minimizer_sampling, True)
-    #     KL, convergence = minimizer(KL)
-    #     mean = KL.position
-    #     ift.extra.minisanity(data, lambda x: N.inverse, signal_response,
-    #                          KL.position, KL.samples)
+    sc = ift.StatCalculator()
+    for sample in KL.samples:
+        sc.add(signal(sample + KL.position))
 
-    #     # Plot current reconstruction
-    #     plot = ift.Plot()
-    #     plot.add(signal(KL.position), title="Latent mean", zmin = 0, zmax = 1)
-    #     plot.add([pspec.force(KL.position + ss) for ss in KL.samples],
-    #              title="Samples power spectrum")
-    #     plot.output(ny=1, ysize=6, xsize=16,
-    #                 name=filename.format("loop_{:02d}".format(i)))
+    # Plotting
+    filename_res = filename.format("results")
+    plot = ift.Plot()
+    plot.add(sc.mean, title="Posterior Mean", zmin = 0, zmax = 1)
+    plot.add(ift.sqrt(sc.var), title="Posterior Standard Deviation")
 
-    # sc = ift.StatCalculator()
-    # for sample in KL.samples:
-    #     sc.add(signal(sample + KL.position))
-
-    # # Plotting
-    # filename_res = filename.format("results")
-    # plot = ift.Plot()
-    # plot.add(sc.mean, title="Posterior Mean", zmin = 0, zmax = 1)
-    # plot.add(ift.sqrt(sc.var), title="Posterior Standard Deviation")
-
-    # powers = [pspec.force(s + KL.position) for s in KL.samples]
-    # sc = ift.StatCalculator()
-    # for pp in powers:
-    #     sc.add(pp.log())
-    # plot.add(
-    #     powers + [pspec.force(mock_position),
-    #               pspec.force(KL.position), sc.mean.exp()],
-    #     title="Sampled Posterior Power Spectrum",
-    #     linewidth=[1.]*len(powers) + [3., 3., 3.],
-    #     label=[None]*len(powers) + ['Ground truth', 'Posterior latent mean', 'Posterior mean'])
-    # plot.output(ny=1, nx=3, xsize=24, ysize=6, name=filename_res)
-    # print("Saved results as '{}'.".format(filename_res))
+    powers = [pspec.force(s + KL.position) for s in KL.samples]
+    sc = ift.StatCalculator()
+    for pp in powers:
+        sc.add(pp.log())
+    plot.add(
+        powers + [pspec.force(mock_position),
+                  pspec.force(KL.position), sc.mean.exp()],
+        title="Sampled Posterior Power Spectrum",
+        linewidth=[1.]*len(powers) + [3., 3., 3.],
+        label=[None]*len(powers) + ['Ground truth', 'Posterior latent mean', 'Posterior mean'])
+    plot.output(ny=1, nx=3, xsize=24, ysize=6, name=filename_res)
+    print("Saved results as '{}'.".format(filename_res))
 
 def myinterp2d():
     # Preparing the filename string for store results
@@ -377,5 +373,5 @@ def myinterp2d():
 
 
 if __name__ == '__main__':
-    # main()
-    myinterp2d()
+    main()
+    # myinterp2d()
