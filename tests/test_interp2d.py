@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 import nifty7 as ift
 
 """
-g_ML, invcov
+g_ML, JHJ
 
 g = exp(amp) exp(i phi)
+
+g_ML = S g + eps, where eps ~ N(0, JHJinv)
 
 R = S g
 """
@@ -53,7 +55,7 @@ R = S g
 def madmask(image):
     import scipy
     sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
-    mask = np.abs(image > 3*sig)
+    mask = (np.abs(image) > 3*sig)
     sigt = 11
     signu = 11
     from scipy.signal import convolve2d
@@ -66,8 +68,8 @@ def main():
     basename = "/home/landman/Data/MeerKAT/Jove/dspec/"
 
     from astropy.io import fits
-    wgt = fits.getdata(basename + 'Weights.fits')[:, :, 0:2065]  # select Stokes I as example
-    data = fits.getdata(basename + 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits')[:, :, 0:2065]
+    wgt = fits.getdata(basename + 'Weights.fits') #[:, :, 0:2065]  # select Stokes I as example
+    data = fits.getdata(basename + 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits') #[:, :, 0:2065]
 
      # get madmask
     mask = np.ones(wgt[0].shape, dtype=bool)
@@ -80,10 +82,12 @@ def main():
     # data = np.where(wgt > 0, data/wgt, 0.0)
     # print(np.sum(np.abs(data)>0))
 
-    # plt.figure('1')
-    # plt.imshow(np.log(1 + data), cmap='RdBu', vmin=-0.01, vmax=0.01, origin='lower')
-    # plt.colorbar()
-    # plt.show()
+    plt.figure('1')
+    plt.imshow(np.log(1 + data), cmap='RdBu', vmin=-0.01, vmax=0.01, origin='lower')
+    plt.colorbar()
+    plt.show()
+
+    quit()
 
     # Set up signal domain
     npix1, npix2 = wgt.shape
