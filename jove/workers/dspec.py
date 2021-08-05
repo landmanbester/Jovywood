@@ -41,8 +41,8 @@ def dspec(**kw):
     import nifty7 as ift
 
 
-    wgtc = load_fits(args.weight).squeeze()[:, 0:1024, 0:1024]
-    datac = load_fits(args.data).squeeze()[:, 0:1024, 0:1024]
+    wgtc = load_fits(args.weight).squeeze()
+    datac = load_fits(args.data).squeeze()
 
     # scale weights
     for c in range(4):
