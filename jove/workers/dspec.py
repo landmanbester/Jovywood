@@ -28,11 +28,11 @@ def dspec(**kw):
         print('     %25s = %s' % (key, args[key]), file=log)
 
     import os
-    os.environ["OMP_NUM_THREADS"] = str(1)
-    os.environ["OPENBLAS_NUM_THREADS"] = str(1)
-    os.environ["MKL_NUM_THREADS"] = str(1)
-    os.environ["VECLIB_MAXIMUM_THREADS"] = str(1)
-    os.environ["NUMBA_NUM_THREADS"] = str(1)
+    os.environ["OMP_NUM_THREADS"] = str(args.nthreads)
+    os.environ["OPENBLAS_NUM_THREADS"] = str(args.nthreads)
+    os.environ["MKL_NUM_THREADS"] = str(args.nthreads)
+    os.environ["VECLIB_MAXIMUM_THREADS"] = str(args.nthreads)
+    os.environ["NUMBA_NUM_THREADS"] = str(args.nthreads)
     import numpy as np
     import xarray as xr
     from astropy.io import fits
