@@ -41,8 +41,8 @@ def dspec(**kw):
     import nifty7 as ift
 
 
-    wgtc = load_fits(args.weight).squeeze()
-    datac = load_fits(args.data).squeeze()
+    wgtc = fits.getdata(args.weight)
+    datac = fits.getdata(args.data)
 
     # scale weights
     for c in range(4):
@@ -145,6 +145,10 @@ def dspec(**kw):
 
     hdr = fits.getheader(args.data)
     datac[:, mask] = np.nan
-    save_fits(args.data + '.data.fits', datac, hdr)
-    save_fits(args.data + '.mean.fits', xmean, hdr)
-    save_fits(args.data + '.std.fits', xstd, hdr)
+    hdu = fits.PrimaryHDU(header=hdr)
+    hdu.data = datac
+    hdu.writeto(args.data + '.data.fits', overwrite=True)
+    hdu.data = xmean
+    hdu.writeto(args.data + '.mean.fits', overwrite=True)
+    hdu.data = xstd
+    hdu.writeto(args.data + '.std.fits', overwrite=True)
