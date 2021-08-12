@@ -10,6 +10,8 @@ log = pyscilog.get_logger('DSPEC')
               help="Path to data.fits")
 @click.option("-w", "--weight", type=str, required=True,
               help="Path to weights.fits")
+@click.option("-ws", "--weight-scale", type=float, default=10,
+              help="Weight scaling factor")
 @click.option("-o", "--outfile", type=str, required=True,
               help='Base name of output file.')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
@@ -63,7 +65,7 @@ def dspec(**kw):
     for c in range(4):
         int_weight = 1.0/np.var(datac[c])
         mean_weight = np.mean(wgtc[c])
-        wgtc[c] *= 10*int_weight/mean_weight
+        wgtc[c] *= args.weight_scale*int_weight/mean_weight
 
     # Set up signal domain
     nv, nt = datac[0].shape
