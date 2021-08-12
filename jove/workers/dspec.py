@@ -75,9 +75,9 @@ def dspec(**kw):
 
     # Set up signal model
     cfmaker = ift.CorrelatedFieldMaker('')
-    cfmaker.add_fluctuations(sp1, (0.0001, 1e-4), (1, .2), (.01, .1), (-3, 1.),
+    cfmaker.add_fluctuations(sp1, (0.01, 1e-2), (1, .2), (.01, .1), (-3, 1.),
                              'amp1')
-    cfmaker.add_fluctuations(sp2, (0.0001, 1e-4), (1, .2), (.01, .1), (-3, 1),
+    cfmaker.add_fluctuations(sp2, (0.01, 1e-2), (1, .2), (.01, .1), (-3, 1),
                              'amp2')
     cfmaker.set_amplitude_total_offset(0., (1e-2, 1e-4))
     correlated_field = cfmaker.finalize()
