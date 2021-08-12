@@ -19,6 +19,8 @@ from pfb.opt.pcg import pcg
 from jove.utils import madmask, SingleDomain
 
 
+
+
 # def sample(xihat, R, L, Sigma, hess):
 #     eps = np.sqrt(Sigma) * np.random.randn(xihat.shape)
 #     y = R(xi) + eps

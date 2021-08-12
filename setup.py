@@ -19,6 +19,7 @@ requirements = [
                 'astropy',
                 'aplpy',
                 'ducc0',
+                'mpi4py',
 
                 "pfb-clean"
                 "@git+https://github.com/ratt-ru/pfb-clean.git"
