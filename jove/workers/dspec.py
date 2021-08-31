@@ -58,14 +58,17 @@ def dspec(**kw):
         comm = None
         rank = 0
 
-    wgtc = fits.getdata(args.weight)
-    datac = fits.getdata(args.data)
+    wgtc = fits.getdata(args.weight)[:, :, 0:2065]
+    datac = fits.getdata(args.data)[:, :, 0:2065]
 
     # scale weights
     for c in range(4):
         int_weight = 1.0/np.var(datac[c])
         mean_weight = np.mean(wgtc[c])
         wgtc[c] *= args.weight_scale*int_weight/mean_weight
+        print(args.weight_scale*int_weight/mean_weight)
+
+    quit()
 
     # Set up signal domain
     nv, nt = datac[0].shape
@@ -129,7 +132,7 @@ def dspec(**kw):
         H = ift.StandardHamiltonian(likelihood_energy, ic_sampling)
 
         # Draw new samples to approximate the KL six times
-        N_samples = 6
+        N_samples = 5
         for j in range(6):
             if j==5:
                 # more samples in last step for better stats

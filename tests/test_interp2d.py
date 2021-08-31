@@ -11,6 +11,7 @@ mpl.rcParams.update({'font.size': 8, 'font.family': 'serif'})
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import nifty7 as ift
+ift.fft.set_nthreads(6)
 from astropy.io import fits
 from pfb.operators.mask import Mask
 from africanus.gps.utils import abs_diff
@@ -19,7 +20,10 @@ from pfb.opt.pcg import pcg
 from jove.utils import madmask, SingleDomain
 
 
-
+# I cov for time
+# white sum sq of pixels over freq
+# sqrt(y.H Sigma^{-1} y)
+# convert power spec bump to time length scale
 
 # def sample(xihat, R, L, Sigma, hess):
 #     eps = np.sqrt(Sigma) * np.random.randn(xihat.shape)
@@ -298,11 +302,11 @@ def inspect():
 
 def main():
     # Preparing the filename string for store results
-    basename = "/home/landman/Data/MeerKAT/Jove/dspec/"
-
+    basename = "/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/"
+    source = 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits'
     from astropy.io import fits
     wgt = fits.getdata(basename + 'Weights.fits')[:, :, 0:2065]  # select Stokes I as example
-    data = fits.getdata(basename + 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits')[:, :, 0:2065]
+    data = fits.getdata(basename + source)[:, :, 0:2065]
 
     # refine mask
     mask = madmask(data, wgt)
@@ -385,7 +389,7 @@ def main():
     initial_mean = 0.1 * ift.from_random(signal_response.domain, 'normal')
     mean = initial_mean
 
-    filename = "/home/landman/Data/MeerKAT/Jove/dspec/setup.png"
+    filename = "/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/setup.png"
     plot = ift.Plot()
     # for i in range(N_samples):
     samp = ift.from_random(signal_response.domain, 'normal')
@@ -400,7 +404,7 @@ def main():
     N_samples = 5
 
     # Draw new samples to approximate the KL six times
-    filename = "/home/landman/Data/MeerKAT/Jove/dspec/samples_{}.png"
+    filename = "/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/samples_{}.png"
     for i in range(6):
         if i==5:
             # Double the number of samples in the last step for better statistics
@@ -454,7 +458,7 @@ def main():
     print("Saved results as '{}'.".format(filename_res))
 
 
-    np.savez('/home/landman/Data/MeerKAT/Jove/dspec/ift_result.npz', mean=sc.mean, var=sc.var)
+    np.savez('/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/ift_result.npz', mean=sc.mean, var=sc.var)
 
 def sparse_rec():
     # Preparing the filename string for store results
@@ -537,32 +541,39 @@ def sparse_rec():
 
 def myinterp2d():
     # Preparing the filename string for store results
-    basename = "/home/landman/Data/MeerKAT/Jove/dspec/UHF_NoSubTarget_SourceOff/UHF_NoSubTarget_SourceOff/"
-    source = 'OFF/1625623568_20:05:35.530_-20:06:02.391.fits'
+    basename = "/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/"
+    source = 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits'
     wgt = fits.getdata(basename + 'Weights.fits')  # select Stokes I as example
     data = fits.getdata(basename + source)
     nv, nt = data[0].shape
 
-    # K = Kt kron Kv
-    # Ky =  Kt kron Kv + Sigmainv
+    hdr = fits.getheader(basename + source)
+    delt = hdr['CDELT1']  # delta t in sec
+    phys_time = np.arange(nt) * delt/3600  # sec to hr
 
     # refine mask
     th = 6
     sigv = 3
     sigt = 3
     mask = madmask(data, wgt, th=th, sigv=sigv, sigt=sigt)
+    wgt[:, mask] = 0.0
+    data[:, mask] = 0.0
+    # wgt *= 58
     R = Mask(mask)
 
     nu = np.linspace(0, 1, nv)
     t = np.linspace(0, 1, nt)
 
     tt = abs_diff(t, t)
-    lt = 0.025
+    lt = 0
     sigma_f = 0.01
-    Kt = sigma_f**2 * np.exp(-tt**2/(2*lt**2))
+    if lt:
+        Kt = sigma_f**2 * np.exp(-tt**2/(2*lt**2))
+    else:
+        Kt = sigma_f**2 * np.eye(nt)
     Lt = np.linalg.cholesky(Kt + 1e-10*np.eye(nt))
     vv = abs_diff(nu, nu)
-    lv = 0.25
+    lv = 0.75
     Kv = np.exp(-vv**2/(2*lv**2))
     Lv = np.linalg.cholesky(Kv + 1e-10*np.eye(nv))
     K = (Kv, Kt)
@@ -571,6 +582,7 @@ def myinterp2d():
 
     fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(24, 6))
     corrs = ['I', 'Q', 'U', 'V']
+    sols = np.zeros_like(data)
     for c in range(4):
         wgtc = wgt[c, ~mask]
         datac = data[c, ~mask]
@@ -596,21 +608,53 @@ def myinterp2d():
 
         im = ax[0, c].imshow(datac, vmin=-0.005, vmax=0.005,
                              cmap='inferno', interpolation=None)
-        # ax[0, c].axis('off')
+        ax[0, c].axis('off')
+        divider = make_axes_locatable(ax[0, c])
+        cax = divider.append_axes("bottom", size="10%", pad=0.1)
+        cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+        cb.outline.set_visible(False)
+        cb.ax.tick_params(length=1, width=1, labelsize=5, pad=0.1)
+
+
 
         im = ax[1, c].imshow(sol, vmin=-0.005, vmax=0.005,
                              cmap='inferno', interpolation=None)
-        # ax[1, c].axis('off')
+        ax[1, c].axis('off')
         divider = make_axes_locatable(ax[1, c])
-        cax = divider.append_axes("bottom", size="10%", pad=0.5)
+        cax = divider.append_axes("bottom", size="10%", pad=0.05)
         cb = fig.colorbar(im, cax=cax, orientation="horizontal")
         cb.outline.set_visible(False)
-        cb.ax.tick_params(length=1, width=1, labelsize=5, pad=0.5)
+        cb.ax.tick_params(length=1, width=1, labelsize=5, pad=0.05)
 
-    fig.tight_layout()
+        sols[c] = sol
+
     plt.savefig(basename + source + f".th{th}_sigv{sigv}_sigt{sigt}_lv{lv}_lt{lt}.png",
-                dpi=500, bbox_inches='tight')
-    plt.show()
+                dpi=100, bbox_inches='tight')
+    plt.close(fig)
+
+    fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
+    for c in range(4):
+        # make lightcurves
+        lc_raw = np.sum(data[c]**2, axis=0)
+        lw_raw = np.sum(wgt[c], axis=0)
+        # lc_raw = np.where(lw_raw > 0, lc_raw/lw_raw, np.nan)
+
+        # lstd = 1.0/np.sqrt(lw_raw[lw_raw!=0])
+
+        lc_mean = np.sum(sols[c]**2, axis=0)
+
+
+        ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
+        ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
+        if c in [0,1,2]:
+            ax[c].get_xaxis().set_visible(False)
+        else:
+            ax[c].set_xlabel('time / [hrs]')
+
+    plt.savefig(basename + source + f".th{th}_sigv{sigv}_sigt{sigt}_lv{lv}_lt{lt}_lc.png",
+                dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
 
 
 
