@@ -3,7 +3,7 @@ from jove.main import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
-log = pyscilog.get_logger('DSPEC')
+log = pyscilog.get_logger('SSMOOTH')
 
 @cli.command()
 @click.option("-bn", "--basename", type=str, required=True,
@@ -29,6 +29,8 @@ def simply_smooth(**kw):
     smooth dynamic spectra with GP
     '''
     args = OmegaConf.create(kw)
+    if not args.basename.endswith('/'):
+        args.basename += '/'
     OmegaConf.set_struct(args, True)
     pyscilog.log_to_file(args.outfile + '.log')
     pyscilog.enable_memory_logging(level=3)
@@ -51,6 +53,11 @@ def simply_smooth(**kw):
     from africanus.gps.utils import abs_diff
     from pfb.utils.misc import kron_matvec as kv
     from pfb.opt.pcg import pcg
+    import matplotlib as mpl
+    mpl.rcParams.update({'font.size': 8, 'font.family': 'serif'})
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 
 
     # Preparing the filename string for store results
@@ -133,7 +140,31 @@ def simply_smooth(**kw):
 
     plt.savefig(args.basename + args.source +
                 f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}.png",
-                dpi=100, bbox_inches='tight')
+                dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+    fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
+    for c in range(4):
+        # make lightcurves
+        lc_raw = np.sum(data[c], axis=0)
+        lw_raw = np.sum(wgt[c], axis=0)
+        # lc_raw = np.where(lw_raw > 0, lc_raw/lw_raw, np.nan)
+
+        # lstd = 1.0/np.sqrt(lw_raw[lw_raw!=0])
+
+        lc_mean = np.sum(sols[c], axis=0)
+
+
+        ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
+        ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
+        if c in [0,1,2]:
+            ax[c].get_xaxis().set_visible(False)
+        else:
+            ax[c].set_xlabel('time / [hrs]')
+
+    plt.savefig(args.basename + args.source +
+                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_lc.png",
+                dpi=200, bbox_inches='tight')
     plt.close(fig)
 
     fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
@@ -155,6 +186,7 @@ def simply_smooth(**kw):
         else:
             ax[c].set_xlabel('time / [hrs]')
 
-    plt.savefig(basename + source + f".th{th}_sigv{sigv}_sigt{sigt}_lnu{lnu}_lt{lt}_lc.png",
+    plt.savefig(args.basename + args.source +
+                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_pw.png",
                 dpi=200, bbox_inches='tight')
     plt.close(fig)
