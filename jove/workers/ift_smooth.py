@@ -1,9 +1,9 @@
 import click
-from jove.main import cli
+from jove.dspec import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
-log = pyscilog.get_logger('DSPEC')
+log = pyscilog.get_logger('IFTS')
 
 @cli.command()
 @click.option("-d", "--data", type=str, required=True,
@@ -16,7 +16,7 @@ log = pyscilog.get_logger('DSPEC')
               help='Base name of output file.')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
-def dspec(**kw):
+def ift_smooth(**kw):
     '''
     dynamic spectra and lightcurve maker
     '''

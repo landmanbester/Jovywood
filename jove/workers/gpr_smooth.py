@@ -1,9 +1,9 @@
 import click
-from jove.main import cli
+from jove.dspec import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')
-log = pyscilog.get_logger('SSMOOTH')
+log = pyscilog.get_logger('GPRS')
 
 @cli.command()
 @click.option("-bn", "--basename", type=str, required=True,
@@ -24,7 +24,7 @@ log = pyscilog.get_logger('SSMOOTH')
               help='Base name of output file.')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
-def simply_smooth(**kw):
+def gpr_smooth(**kw):
     '''
     smooth dynamic spectra with GP
     '''
