@@ -139,8 +139,8 @@ def gpr_smooth(**kw):
         sols[c] = sol
 
     plt.savefig(args.basename + args.source +
-                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}.png",
-                dpi=200, bbox_inches='tight')
+                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}.pdf",
+                bbox_inches='tight')
     plt.close(fig)
 
     fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
@@ -163,8 +163,8 @@ def gpr_smooth(**kw):
             ax[c].set_xlabel('time / [hrs]')
 
     plt.savefig(args.basename + args.source +
-                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_lc.png",
-                dpi=200, bbox_inches='tight')
+                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_lc.pdf",
+                bbox_inches='tight')
     plt.close(fig)
 
     fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
@@ -187,6 +187,6 @@ def gpr_smooth(**kw):
             ax[c].set_xlabel('time / [hrs]')
 
     plt.savefig(args.basename + args.source +
-                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_pw.png",
-                dpi=200, bbox_inches='tight')
+                f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_pw.pdf",
+                bbox_inches='tight')
     plt.close(fig)
