@@ -19,6 +19,8 @@ from pfb.utils.misc import kron_matvec as kv
 from pfb.opt.pcg import pcg
 from jove.utils import madmask, SingleDomain
 
+        # if [ s == *.fits ]
+        # then
 
 # I cov for time
 # white sum sq of pixels over freq

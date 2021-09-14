@@ -24,6 +24,14 @@ log = pyscilog.get_logger('GPRS')
               help='Base name of output file.')
 @click.option('-nthreads', '--nthreads', type=int, default=64,
               help='Number of dask threads.')
+@click.option('-t0', '--t0', type=int, default=0,
+              help='Starting time index.')
+@click.option('-tf', '--tf', type=int, default=-1,
+              help='Final time index.')
+@click.option('-nu0', '--nu0', type=int, default=0,
+              help='Starting freq index.')
+@click.option('-nuf', '--nuf', type=int, default=-1,
+              help='Final freq index.')
 def gpr_smooth(**kw):
     '''
     smooth dynamic spectra with GP
@@ -75,12 +83,19 @@ def gpr_smooth(**kw):
     # nt0 = 256 + 128 + 32
     # ntf = 1024 - 256 - 64
 
-    # wgt = wgt[:, :, nt0:ntf]
-    # data = data[:, :, nt0:ntf]
+    if args.tf == -1:
+        args.tf = nt
+    if args.nuf == -1:
+        args.nuf = nv
 
-    # phys_time = phys_time[nt0:ntf]
+    wgt = wgt[:, args.nu0:args.nuf, args.t0:args.tf]
+    data = data[:, args.nu0:args.nuf, args.t0:args.tf]
+
+    phys_time = phys_time[args.t0:args.tf]
+    phys_freq = phys_freq[args.nu0:args.nuf]
 
     nt = phys_time.size
+    nv = phys_freq.size
 
     # refine mask
     sigv = 3
@@ -127,7 +142,9 @@ def gpr_smooth(**kw):
         datac[mask] = np.nan
         ax[0, c].set_title(f"{corrs[c]}")
 
-        im = ax[0, c].imshow(datac, vmin=-0.005, vmax=0.005,
+        #vmin = datac.min()
+        #vmax = datac.max()
+        im = ax[0, c].imshow(datac, #vmin=-0.005, vmax=0.005,
                              cmap='inferno', interpolation=None,
                              aspect='auto',
                              extent=[phys_time[0], phys_time[-1],
@@ -138,7 +155,7 @@ def gpr_smooth(**kw):
         if not c:
             ax[0, c].set_ylabel('freq / [MHz]')
 
-        im = ax[1, c].imshow(sol, vmin=-0.005, vmax=0.005,
+        im = ax[1, c].imshow(sol, # vmin=-0.005, vmax=0.005,
                              cmap='inferno', interpolation=None,
                              aspect='auto',
                              extent=[phys_time[0], phys_time[-1],
