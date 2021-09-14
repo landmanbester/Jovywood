@@ -63,7 +63,7 @@ def gpr_smooth(**kw):
     from pfb.opt.pcg import pcg
     from pfb.utils.fits import data_from_header
     import matplotlib as mpl
-    mpl.rcParams.update({'font.size': 8, 'font.family': 'serif'})
+    mpl.rcParams.update({'font.size': 12, 'font.family': 'serif'})
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -122,7 +122,10 @@ def gpr_smooth(**kw):
     L = (Lv, Lt)
     LH = (Lv.T, Lt.T)
 
-    fig, ax = plt.subplots(nrows=2, ncols=4)
+    ysize = 12
+    xsize = int(np.ceil(4 * nt * ysize/nv))
+
+    fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(xsize, ysize))
     corrs = ['I', 'Q', 'U', 'V']
     sols = np.zeros_like(data)
     for c in range(4):
@@ -142,33 +145,33 @@ def gpr_smooth(**kw):
         datac[mask] = np.nan
         ax[0, c].set_title(f"{corrs[c]}")
 
-        #vmin = datac.min()
-        #vmax = datac.max()
-        im = ax[0, c].imshow(datac, #vmin=-0.005, vmax=0.005,
+        vmin = sol.min()
+        vmax = sol.max()
+        im = ax[0, c].imshow(datac, vmin=vmin, vmax=vmax,
                              cmap='inferno', interpolation=None,
                              aspect='auto',
                              extent=[phys_time[0], phys_time[-1],
                                      phys_freq[0], phys_freq[-1]])
         ax[0, c].tick_params(axis='both', which='major',
-					         length=1, width=1, labelsize=4)
+					         length=1, width=1, labelsize=7)
         ax[0, c].set_xlabel('time / [hrs]')
         if not c:
             ax[0, c].set_ylabel('freq / [MHz]')
 
-        im = ax[1, c].imshow(sol, # vmin=-0.005, vmax=0.005,
+        im = ax[1, c].imshow(sol, vmin=vmin, vmax=vmax,
                              cmap='inferno', interpolation=None,
                              aspect='auto',
                              extent=[phys_time[0], phys_time[-1],
                                      phys_freq[0], phys_freq[-1]])
         ax[1, c].tick_params(axis='both', which='major',
-					         length=1, width=1, labelsize=4)
+					         length=1, width=1, labelsize=7)
         if not c:
             ax[1, c].set_ylabel('freq / [MHz]')
         divider = make_axes_locatable(ax[1, c])
         cax = divider.append_axes("bottom", size="10%", pad=0.05)
         cb = fig.colorbar(im, cax=cax, orientation="horizontal")
         cb.outline.set_visible(False)
-        cb.ax.tick_params(length=1, width=1, labelsize=4, pad=0.05)
+        cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.05)
 
         sols[c] = sol
 
@@ -191,6 +194,7 @@ def gpr_smooth(**kw):
 
         ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
         ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
+        ax[c].set_ylabel(f'{corrs[c]}')
         if c in [0,1,2]:
             ax[c].get_xaxis().set_visible(False)
         else:
@@ -215,6 +219,7 @@ def gpr_smooth(**kw):
 
         ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
         ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
+        ax[c].set_ylabel(f'{corrs[c]}')
         if c in [0,1,2]:
             ax[c].get_xaxis().set_visible(False)
         else:
