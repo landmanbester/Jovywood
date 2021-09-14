@@ -53,6 +53,7 @@ def gpr_smooth(**kw):
     from africanus.gps.utils import abs_diff
     from pfb.utils.misc import kron_matvec as kv
     from pfb.opt.pcg import pcg
+    from pfb.utils.fits import data_from_header
     import matplotlib as mpl
     mpl.rcParams.update({'font.size': 8, 'font.family': 'serif'})
     import matplotlib.pyplot as plt
@@ -66,10 +67,20 @@ def gpr_smooth(**kw):
     wgt = fits.getdata(args.basename + 'Weights.fits')  # select Stokes I as example
     data = fits.getdata(args.basename + args.source)
     nv, nt = data[0].shape
-
     hdr = fits.getheader(args.basename + args.source)
-    delt = hdr['CDELT1']  # delta t in sec
+    delt = hdr['CDELT1']
     phys_time = np.arange(nt) * delt/3600  # sec to hr
+    phys_freq, ref_freq = data_from_header(hdr, axis=2)
+
+    # nt0 = 256 + 128 + 32
+    # ntf = 1024 - 256 - 64
+
+    # wgt = wgt[:, :, nt0:ntf]
+    # data = data[:, :, nt0:ntf]
+
+    # phys_time = phys_time[nt0:ntf]
+
+    nt = phys_time.size
 
     # refine mask
     sigv = 3
@@ -96,7 +107,7 @@ def gpr_smooth(**kw):
     L = (Lv, Lt)
     LH = (Lv.T, Lt.T)
 
-    fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(24, 6))
+    fig, ax = plt.subplots(nrows=2, ncols=4)
     corrs = ['I', 'Q', 'U', 'V']
     sols = np.zeros_like(data)
     for c in range(4):
@@ -117,24 +128,30 @@ def gpr_smooth(**kw):
         ax[0, c].set_title(f"{corrs[c]}")
 
         im = ax[0, c].imshow(datac, vmin=-0.005, vmax=0.005,
-                             cmap='inferno', interpolation=None)
-        ax[0, c].axis('off')
-        divider = make_axes_locatable(ax[0, c])
-        cax = divider.append_axes("bottom", size="10%", pad=0.1)
-        cb = fig.colorbar(im, cax=cax, orientation="horizontal")
-        cb.outline.set_visible(False)
-        cb.ax.tick_params(length=1, width=1, labelsize=5, pad=0.1)
-
-
+                             cmap='inferno', interpolation=None,
+                             aspect='auto',
+                             extent=[phys_time[0], phys_time[-1],
+                                     phys_freq[0], phys_freq[-1]])
+        ax[0, c].tick_params(axis='both', which='major',
+					         length=1, width=1, labelsize=4)
+        ax[0, c].set_xlabel('time / [hrs]')
+        if not c:
+            ax[0, c].set_ylabel('freq / [MHz]')
 
         im = ax[1, c].imshow(sol, vmin=-0.005, vmax=0.005,
-                             cmap='inferno', interpolation=None)
-        ax[1, c].axis('off')
+                             cmap='inferno', interpolation=None,
+                             aspect='auto',
+                             extent=[phys_time[0], phys_time[-1],
+                                     phys_freq[0], phys_freq[-1]])
+        ax[1, c].tick_params(axis='both', which='major',
+					         length=1, width=1, labelsize=4)
+        if not c:
+            ax[1, c].set_ylabel('freq / [MHz]')
         divider = make_axes_locatable(ax[1, c])
         cax = divider.append_axes("bottom", size="10%", pad=0.05)
         cb = fig.colorbar(im, cax=cax, orientation="horizontal")
         cb.outline.set_visible(False)
-        cb.ax.tick_params(length=1, width=1, labelsize=5, pad=0.05)
+        cb.ax.tick_params(length=1, width=1, labelsize=4, pad=0.05)
 
         sols[c] = sol
 
@@ -190,3 +207,5 @@ def gpr_smooth(**kw):
                 f".th{args.mad_threshold}_lnu{args.lnu}_lt{args.lt}_pw.pdf",
                 bbox_inches='tight')
     plt.close(fig)
+
+    np.savez(args.basename + args.source + '.npz', data=data, wgt=wgt, sols=sols, allow_pickle=True)
