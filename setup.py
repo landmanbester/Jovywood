@@ -19,10 +19,11 @@ requirements = [
                 'astropy',
                 'aplpy',
                 'ducc0',
+                'mpi4py',
 
-                "nifty"
-                "git+https://gitlab.mpcdf.mpg.de/ift/nifty.git"
-                "@NIFTy_7",
+                "pfb-clean"
+                "@git+https://github.com/ratt-ru/pfb-clean.git"
+                "@stokes_products",
             ]
 
 
@@ -44,7 +45,8 @@ setup(
      ],
      entry_points='''
                     [console_scripts]
-                    smoovie=jove.main:cli
+                    smoovie=jove.smoovie:cli
+                    dspec=jove.dspec:cli
 
      '''
      ,

@@ -1,6 +1,6 @@
 
 import click
-from jove.main import cli
+from jove.smoovie import cli
 from omegaconf import OmegaConf
 import pyscilog
 pyscilog.init('jove')

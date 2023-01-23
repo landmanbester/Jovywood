@@ -8,6 +8,7 @@ from astropy.wcs import WCS
 import aplpy
 import matplotlib.pyplot as plt
 import os.path
+import nifty7 as ift
 
 
 def to4d(data):
@@ -237,6 +238,32 @@ def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
 
     return times
 
+def madmask(data, wgt, th=5, sigv=7, sigt=7):
+    import scipy
+    from scipy.signal import convolve2d
+    mask = None
+    for i in range(4):
+        image = np.where(wgt[i] > 0, np.abs(data[i]), 0)
+        sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
+        tmpmask = (image > th*sig)
+        tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
+        tmpmask = (np.abs(tmpmask) > 0.1)
+        if mask is None:
+            mask = tmpmask
+        else:
+            mask = np.logical_or(mask, tmpmask)
+    wgtmask = np.where(np.prod(wgt, axis=0) > 0, 0.0, 1.0)
+    return np.logical_or(mask, wgtmask)
+
+class SingleDomain(ift.LinearOperator):
+    def __init__(self, domain, target):
+        self._domain = ift.makeDomain(domain)
+        self._target = ift.makeDomain(target)
+        self._capability = self.TIMES | self.ADJOINT_TIMES
+
+    def apply(self, x, mode):
+        self._check_input(x, mode)
+        return ift.makeField(self._tgt(mode), x.val)
 
 # def drop2axes(filename, outname):
 #     hdu = fits.open(filename)[0]
