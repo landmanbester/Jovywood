@@ -23,7 +23,7 @@ requirements = [
 
                 "pfb-clean"
                 "@git+https://github.com/ratt-ru/pfb-clean.git"
-                "@stokes_products",
+                "@master",
             ]
 
 
