@@ -242,17 +242,12 @@ def madmask(data, wgt, th=5, sigv=7, sigt=7):
     import scipy
     from scipy.signal import convolve2d
     mask = None
-    for i in range(4):
-        image = np.where(wgt[i] > 0, np.abs(data[i]), 0)
-        sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
-        tmpmask = (image > th*sig)
-        tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
-        tmpmask = (np.abs(tmpmask) > 0.1)
-        if mask is None:
-            mask = tmpmask
-        else:
-            mask = np.logical_or(mask, tmpmask)
-    wgtmask = np.where(np.prod(wgt, axis=0) > 0, 0.0, 1.0)
+    image = np.where(wgt > 0, np.abs(data), 0)
+    sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
+    tmpmask = (image > th*sig)
+    tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
+    tmpmask = (np.abs(tmpmask) > 0.1)
+    wgtmask = np.where(wgt > 0, 0.0, 1.0)
     return np.logical_or(mask, wgtmask)
 
 class SingleDomain(ift.LinearOperator):
@@ -264,6 +259,32 @@ class SingleDomain(ift.LinearOperator):
     def apply(self, x, mode):
         self._check_input(x, mode)
         return ift.makeField(self._tgt(mode), x.val)
+
+
+class Mask(object):
+    def __init__(self, mask):
+        """
+        Mask operator
+        """
+        nx, ny = mask.shape
+        self.nx = nx
+        self.ny = ny
+        self.mask = mask
+
+    def dot(self, x):
+        """
+        Components to image
+        """
+        return x[self.mask]
+
+    def hdot(self, x):
+        """
+        Image to components
+        """
+        res = np.zeros((self.nx, self.ny))
+        res[self.mask] = x
+        return res  #np.where(self.mask, 0.0, x)
+
 
 # def drop2axes(filename, outname):
 #     hdu = fits.open(filename)[0]
