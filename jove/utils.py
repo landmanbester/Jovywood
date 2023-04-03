@@ -119,7 +119,7 @@ def diag_dot(A, B):
     return C
 
 
-@jit(nopython=True, nogil=True, cache=True)
+# @jit(nopython=True, nogil=True, cache=True)
 def dZdtheta(theta, xxsq, y, Sigma):
     '''
     Return log-marginal likelihood and derivs
@@ -134,7 +134,7 @@ def dZdtheta(theta, xxsq, y, Sigma):
     Ky = K + np.diag(Sigma) * sigman**2
     # with numba.objmode: # args?
     #     u, s, v = np.linalg.svd(Ky, hermitian=True)
-    u, s, v = np.linalg.svd(Ky)
+    u, s, v = np.linalg.svd(Ky, hermitian=True)
     logdetK = np.sum(np.log(s))
     Kyinv = u.dot(v/s.reshape(N, 1))
     alpha = Kyinv.dot(y)
@@ -203,6 +203,28 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
     return thetas
 
 
+def _fit_gpr(y, xxsq, Sigma, sigman0=1):
+    n = y.size
+    thetas = np.zeros((3))
+    sigmaf0 = np.std(y)
+
+    # l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+    try:
+        l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+    except:
+        l0 = 0.5
+
+    theta0 = np.array([sigmaf0, l0, sigman0])
+    try:
+        theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
+                                    bounds=((1e-5, None), (1e-3, None), (0.1, 100)),
+                                    factr=1e9, pgtol=5e-4)
+
+        return theta
+    except:
+        return theta0
+
+
 def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     return _interp_pix(thetas[0], np.require(image, dtype=np.float64), xxsq, xxpsq, Sigma, oversmooth)
 
@@ -241,14 +263,17 @@ def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
 def madmask(data, wgt, th=5, sigv=7, sigt=7):
     import scipy
     from scipy.signal import convolve2d
-    mask = None
     image = np.where(wgt > 0, np.abs(data), 0)
     sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
-    tmpmask = (image > th*sig)
-    tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
-    tmpmask = (np.abs(tmpmask) > 0.1)
-    wgtmask = np.where(wgt > 0, 0.0, 1.0)
-    return np.logical_or(mask, wgtmask)
+    med = np.median(image[image!=0])
+    maskup = image > med + th*sig
+    maskdown = image < med - th*sig
+    tmpmask = np.logical_or(maskup, maskdown)
+    # import pdb; pdb.set_trace()
+    # tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
+    # tmpmask = (np.abs(tmpmask) > 0.1)
+    wgtmask = wgt == 0
+    return np.logical_or(tmpmask, wgtmask)
 
 class SingleDomain(ift.LinearOperator):
     def __init__(self, domain, target):
