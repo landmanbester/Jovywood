@@ -263,7 +263,7 @@ def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
 def madmask(data, wgt, th=5, sigv=7, sigt=7):
     import scipy
     from scipy.signal import convolve2d
-    image = np.where(wgt > 0, np.abs(data), 0)
+    image = np.where(wgt > 0, data, 0)
     sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
     med = np.median(image[image!=0])
     maskup = image > med + th*sig
