@@ -299,7 +299,7 @@ def gpr_smooth(**kw):
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
     im = ax[2].imshow(res, cmap='inferno',
-                 vmin=0.67*res.min(), vmax=0.67*res.max(),
+                 vmin=0.25*res.min(), vmax=0.25*res.max(),
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
