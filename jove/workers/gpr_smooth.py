@@ -106,7 +106,7 @@ def gpr_smooth(**kw):
     # source = 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits'
     std = fits.getdata(opts.basename.rstrip('.norm.fits') + '.std.fits')[0]
     data = fits.getdata(opts.basename)[0].astype(np.float64)
-    wgt = np.where(data == 0, 1.0/std**2, 0.0)
+    wgt = np.where(data != 0, 1.0/std**2, 0.0)
     nv, nt = data.shape
     hdr = fits.getheader(opts.basename)
     delt = hdr['CDELT1']
@@ -128,7 +128,7 @@ def gpr_smooth(**kw):
     nt = phys_time.size
     nv = phys_freq.size
 
-    maskp = data == 0
+    maskp = data != 0
 
     # refine mask
     sigv = 3
