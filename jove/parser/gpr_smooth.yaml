@@ -1,0 +1,51 @@
+inputs:
+  basename:
+    dtype: str
+    required: true
+    info:
+      Path to .norm.fits file.
+  mad_threshold:
+    dtype: float
+    default: 3.0
+    info:
+      MAD flagging threshold
+  lnu:
+    dtype: float
+    default: 0.01
+    info:
+      Degree of smoothing in freq direction.
+      Must be in [0, 1) with 0 -> no smoothing.
+  lt:
+    dtype: float
+    default: 0.001
+    info:
+      Degree of smoothing in time direction.
+      Must be in [0, 1) with 0 -> no smoothing.
+  nthreads:
+    dtype: int
+    default: 8
+    info:
+      Number of threads per Stokes product.
+  t0:
+    dtype: int
+    default: 0
+    info:
+      Start time
+  tf:
+    dtype: int
+    default: -1
+    info:
+      End time
+  nu0:
+    dtype: int
+    default: 0
+    info:
+      Start freq
+  nuf:
+    dtype: int
+    default: -1
+    info:
+      End freq
+
+outputs:
+  {}

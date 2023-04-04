@@ -5,25 +5,10 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 requirements = [
-                'numpy',
-                'scipy',
-                'matplotlib',
-                'numba',
-                'xarray',
-                'zarr',
-                'pyscilog >= 0.1.2',
-                'Click',
-                'omegaconf',
-                'dask',
-                'dask[array]',
-                'astropy',
-                'aplpy',
-                'ducc0',
-                'mpi4py',
-
                 "pfb-clean"
                 "@git+https://github.com/ratt-ru/pfb-clean.git"
                 "@master",
+                'aplpy',
             ]
 
 

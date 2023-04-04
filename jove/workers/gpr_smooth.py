@@ -5,31 +5,16 @@ import pyscilog
 pyscilog.init('jove')
 log = pyscilog.get_logger('GPRS')
 
-@cli.command()
-@click.option("-bn", "--basename", type=str, required=True,
-              help="Path to folder containing TARGET/data.fits")
-@click.option("-th", "--mad-threshold", type=float, default=6.0,
-              help="Threshold for MAD flagging")
-@click.option('-sigmaf', '--sigmaf', type=float, default=0.01,
-              help="Zero mode of GP prior")
-@click.option('-lnu', '--lnu', type=float, default=0.25,
-              help="Length scale of freq covariance function")
-@click.option('-lt', '--lt', type=float, default=0.05,
-              help="Length scale of time covariance function")
-@click.option("-ws", "--weight-scale", type=float, default=1,
-              help="Weight scaling factor")
-@click.option("-o", "--outfile", type=str, required=True,
-              help='Base name of output file.')
-@click.option('-nthreads', '--nthreads', type=int, default=8,
-              help='Number of dask threads.')
-@click.option('-t0', '--t0', type=int, default=0,
-              help='Starting time index.')
-@click.option('-tf', '--tf', type=int, default=-1,
-              help='Final time index.')
-@click.option('-nu0', '--nu0', type=int, default=0,
-              help='Starting freq index.')
-@click.option('-nuf', '--nuf', type=int, default=-1,
-              help='Final freq index.')
+from scabha.schema_utils import clickify_parameters
+from jove.parser.schemas import schema
+
+# create default parameters from schema
+defaults = {}
+for key in schema.gpr_smooth["inputs"].keys():
+    defaults[key] = schema.gpr_smooth["inputs"][key]["default"]
+
+@cli.command(context_settings={'show_default': True})
+@clickify_parameters(schema.spotless)
 def gpr_smooth(**kw):
     '''
     Tool to smooth dynamic spectra with GP.
@@ -68,12 +53,11 @@ def gpr_smooth(**kw):
     This solution is straightforward to obtain using eg. the PCG algorithm.
     The value of the variable x is given by x = L xi.
     '''
-    opts = OmegaConf.create(kw)
-    if opts.basename.endswith('/'):
-        opts.basename = opts.basename.rstrip('/')
-    OmegaConf.set_struct(opts, True)
-    pyscilog.log_to_file(opts.outfile + '.log')
-    pyscilog.enable_memory_logging(level=3)
+    defaults.update(kw)
+    opts = OmegaConf.create(defaults)
+    import time
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    pyscilog.log_to_file(f'gpr_smooth_{timestamp}.log')
 
     print("Input options :", file=log)
     for key in opts.keys():
@@ -86,7 +70,6 @@ def gpr_smooth(**kw):
     os.environ["VECLIB_MAXIMUM_THREADS"] = str(opts.nthreads)
     os.environ["NUMBA_NUM_THREADS"] = str(opts.nthreads)
     import numpy as np
-    from scipy.signal import convolve2d
     import xarray as xr
     from astropy.io import fits
     from jove.utils import madmask, Mask
@@ -95,15 +78,13 @@ def gpr_smooth(**kw):
     from pfb.opt.pcg import pcg
     from pfb.utils.fits import data_from_header
     import matplotlib as mpl
-    mpl.rcParams.update({'font.size': 12, 'font.family': 'serif'})
+    mpl.rcParams.update({'font.size': 18, 'font.family': 'serif'})
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 
-    # Preparing the filename string for store results
-    # basename = "/home/landman/Data/MeerKAT/Jove/dspec/FullJupiter_NoSubTarget_SourceOff/"
-    # source = 'TARGET/1608538564_20:09:36.999_-20:26:47.350.fits'
+    # load data
     std = fits.getdata(opts.basename.rstrip('.norm.fits') + '.std.fits')[0]
     data = fits.getdata(opts.basename)[0].astype(np.float64)
     wgt = np.where(data != 0, 1.0/std**2, 0.0)
