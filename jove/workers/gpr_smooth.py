@@ -14,7 +14,7 @@ for key in schema.gpr_smooth["inputs"].keys():
     defaults[key] = schema.gpr_smooth["inputs"][key]["default"]
 
 @cli.command(context_settings={'show_default': True})
-@clickify_parameters(schema.spotless)
+@clickify_parameters(schema.gpr_smooth)
 def gpr_smooth(**kw):
     '''
     Tool to smooth dynamic spectra with GP.
@@ -74,9 +74,12 @@ def gpr_smooth(**kw):
     from astropy.io import fits
     from jove.utils import madmask, Mask
     from africanus.gps.utils import abs_diff
-    from pfb.utils.misc import kron_matvec as kv
+    from pfb.utils.misc import kron_matvec
     from pfb.opt.pcg import pcg
     from pfb.utils.fits import data_from_header
+    from ducc0.fft import r2c, c2r
+    iFs = np.fft.ifftshift
+    Fs = np.fft.fftshift
     import matplotlib as mpl
     mpl.rcParams.update({'font.size': 18, 'font.family': 'serif'})
     import matplotlib.pyplot as plt
@@ -85,14 +88,16 @@ def gpr_smooth(**kw):
 
 
     # load data
-    std = fits.getdata(opts.basename.rstrip('.norm.fits') + '.std.fits')[0]
+    basename = opts.basename.rstrip('.norm.fits')
+    std = fits.getdata(basename + '.std.fits')[0]
     data = fits.getdata(opts.basename)[0].astype(np.float64)
     wgt = np.where(data != 0, 1.0/std**2, 0.0)
     nv, nt = data.shape
     hdr = fits.getheader(opts.basename)
     delt = hdr['CDELT1']
     phys_time, ref_time = data_from_header(hdr, axis=1)
-    phys_time *= delt/3600  # sec to hr
+    phys_time -= phys_time.min()
+    phys_time /= 3600  # sec to hr
     phys_freq, ref_freq = data_from_header(hdr, axis=2)
 
     if opts.tf == -1:
@@ -108,6 +113,14 @@ def gpr_smooth(**kw):
 
     nt = phys_time.size
     nv = phys_freq.size
+
+    # scale to lie in [0, 1]
+    nu = phys_freq - phys_freq[0]
+    nu /= nu.max()
+    # nu = np.linspace(0, 1, nv)
+    # t = np.linspace(0, 1, nt)
+    t = phys_time - phys_time[0]
+    t /= t.max()
 
     maskp = data != 0
 
@@ -134,22 +147,25 @@ def gpr_smooth(**kw):
     # quit()
 
     meandat = np.mean(data[mask])
-    print(f"Using mean of data to set meanf to {meandat}", file=log)
+    print(f"mean of data = {meandat}", file=log)
 
-    from pfb.utils.misc import convolve2gaussres
+    # construct convolution kernel (LB - may need padding here if the kernel is large)
+    def kernel(x, l):
+        nx = x.size
+        return np.exp(-(x-x[nx//2])**2/(2*l**2))
 
-    sigv = 11
-    sigt = 11
+    kt = kernel(t, opts.lt)
+    kv = kernel(nu, opts.lnu)
+    K = kv[:, None] * kt[None, :]
 
-    xin, yin = np.meshgrid(np.arange(-(nv/2), nv/2),
-                           np.arange(-(nt/2), nt/2),
-                           indexing='ij')
+    K /= K.sum()
+    Khat = r2c(iFs(K), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
 
     data = np.where(mask, data, 0.0)
-    data_convolved = convolve2gaussres(data[None, :, :], xin, yin,
-                                       (sigv, sigt, 0.0),
-                                       opts.nthreads,
-                                       norm_kernel=True)[0]
+
+    dhat = r2c(iFs(data), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
+    dhat *= Khat
+    data_convolved = Fs(c2r(dhat, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
 
     res = np.where(mask, data - data_convolved, 0.0)
 
@@ -160,6 +176,9 @@ def gpr_smooth(**kw):
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
                          phys_freq[0], phys_freq[-1]])
+    ax[0].tick_params(axis='both', which='major',
+                            length=1, width=1, labelsize=7)
+    ax[0].set_ylabel('freq / [MHz]')
     divider = make_axes_locatable(ax[0])
     cax = divider.append_axes("right", size="2%", pad=0.1)
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
@@ -172,6 +191,10 @@ def gpr_smooth(**kw):
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
                          phys_freq[0], phys_freq[-1]])
+    ax[1].tick_params(axis='both', which='major',
+                            length=1, width=1, labelsize=7)
+
+    ax[1].set_ylabel('freq / [MHz]')
     divider = make_axes_locatable(ax[1])
     cax = divider.append_axes("right", size="2%", pad=0.1)
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
@@ -179,28 +202,40 @@ def gpr_smooth(**kw):
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
     im = ax[2].imshow(res, cmap='inferno',
-                 vmin=data_convolved.min(), vmax=data_convolved.max(),
+                 vmin=0.25*res.min(), vmax=0.25*res.max(),
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
                          phys_freq[0], phys_freq[-1]])
+    ax[2].tick_params(axis='both', which='major',
+                            length=1, width=1, labelsize=7)
+    ax[2].set_xlabel('time / [hrs]')
+    ax[2].set_ylabel('freq / [MHz]')
     divider = make_axes_locatable(ax[2])
     cax = divider.append_axes("right", size="2%", pad=0.1)
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    plt.savefig(opts.basename +
-                f".data_convolved_sigma{sigv}.pdf",
+    fig.suptitle('Smoothed by convolvolution')
+
+    plt.savefig(basename +
+                f"..th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_convolved.pdf",
                 bbox_inches='tight')
     plt.close(fig)
 
     # get weight scaling from residual
     resc = data[mask] - data_convolved[mask]
-    chival = np.vdot(resc, resc)
+
+    plt.hist(resc, bins=25)
+    plt.title('Hist convolved resid')
+    plt.savefig(basename +
+                f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_convolved_hist_resid.pdf",
+                bbox_inches='tight')
+    plt.close()
 
     # wgtc = wgt[mask] * opts.weight_scale
-    datac = data[mask] - meandat
+    datac = data[mask]
     wgtc = np.ones_like(datac)
     R = Mask(mask)
 
@@ -208,21 +243,12 @@ def gpr_smooth(**kw):
 
     print(f"Using std of data to set sigmaf to {sigmaf}", file=log)
 
-
-    # scale to lie in [0, 1]
-    nu = phys_freq - phys_freq[0]
-    nu /= nu.max()
-    # nu = np.linspace(0, 1, nv)
-    # t = np.linspace(0, 1, nt)
-    t = phys_time - phys_time[0]
-    t /= t.max()
-
     if opts.lt:
         tt = abs_diff(t, t)
         Kt = sigmaf**2 * np.exp(-tt**2/(2*opts.lt**2))
         Lt = np.linalg.cholesky(Kt + 1e-10*np.eye(nt))
     else:
-        Lt = opts.sigmaf * np.eye(nt)
+        Lt = sigmaf * np.eye(nt)
 
     vv = abs_diff(nu, nu)
     Kv = np.exp(-vv**2/(2*opts.lnu**2))
@@ -234,15 +260,15 @@ def gpr_smooth(**kw):
     sols = np.zeros_like(data)
 
     def hess(x):
-        return kv(LH, R.hdot(wgtc * R.dot(kv(L, x)))) + x
+        return kron_matvec(LH, R.hdot(wgtc * R.dot(kron_matvec(L, x)))) + x
 
-    delta = pcg(hess, kv(LH, R.hdot(wgtc * datac)),
+    delta = pcg(hess, kron_matvec(LH, R.hdot(wgtc * datac)),
                 np.zeros((nv, nt), dtype=np.float64),
                 minit=10, maxit=100, verbosity=2,
                 report_freq=1, tol=1e-3)
-    sol = kv(L, delta) + meandat
+    sol = kron_matvec(L, delta)
 
-    data = R.hdot(datac) + meandat
+    data = R.hdot(datac)
     # import pdb; pdb.set_trace()
     res = np.where(mask, data-sol, 0.0)
 
@@ -255,7 +281,6 @@ def gpr_smooth(**kw):
                                     phys_freq[0], phys_freq[-1]])
     ax[0].tick_params(axis='both', which='major',
                             length=1, width=1, labelsize=7)
-    ax[0].set_xlabel('time / [hrs]')
     ax[0].set_ylabel('freq / [MHz]')
 
     divider = make_axes_locatable(ax[0])
@@ -287,13 +312,17 @@ def gpr_smooth(**kw):
                          phys_freq[0], phys_freq[-1]])
     ax[2].tick_params(axis='both', which='major',
                             length=1, width=1, labelsize=7)
+    ax[2].set_xlabel('time / [hrs]')
+    ax[2].set_ylabel('freq / [MHz]')
     divider = make_axes_locatable(ax[2])
     cax = divider.append_axes("right", size="2%", pad=0.1)
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    plt.savefig(opts.basename +
+    fig.suptitle('Smoothed by GPR')
+
+    plt.savefig(basename +
                 f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}.pdf",
                 bbox_inches='tight')
     plt.close(fig)
@@ -301,9 +330,11 @@ def gpr_smooth(**kw):
     resc = res[mask]
 
     plt.hist(resc, bins=25)
-    plt.savefig(opts.basename +
+    plt.title('Hist resid')
+    plt.savefig(basename +
                 f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_hist_resid.pdf",
                 bbox_inches='tight')
+    plt.close()
 
 
     # fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
@@ -326,7 +357,7 @@ def gpr_smooth(**kw):
     #     else:
     #         ax[c].set_xlabel('time / [hrs]')
 
-    # plt.savefig(opts.basename +
+    # plt.savefig(basename +
     #             f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_lc.pdf",
     #             bbox_inches='tight')
     # plt.close(fig)
@@ -351,9 +382,9 @@ def gpr_smooth(**kw):
     #     else:
     #         ax[c].set_xlabel('time / [hrs]')
 
-    # plt.savefig(opts.basename +
+    # plt.savefig(basename +
     #             f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_pw.pdf",
     #             bbox_inches='tight')
     # plt.close(fig)
 
-    np.savez(opts.basename + '.npz', data=data, wgt=wgt, sols=sol, allow_pickle=True)
+    np.savez(basename + '.npz', data=data, wgt=wgt, sols=sol, allow_pickle=True)

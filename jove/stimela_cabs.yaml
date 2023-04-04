@@ -1,0 +1,11 @@
+cabs:
+  'gpr_smooth':
+    command: jove.workers.gpr_smooth.gpr_smooth
+    flavour: python
+    policies:
+      pass_missing_as_none: true
+      prefix: '--'
+      replace: {'_': '-'}
+
+    _include:
+      - (jove.parser)gpr_smooth.yaml
