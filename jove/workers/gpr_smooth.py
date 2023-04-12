@@ -387,4 +387,6 @@ def gpr_smooth(**kw):
     #             bbox_inches='tight')
     # plt.close(fig)
 
-    np.savez(basename + '.npz', data=data, wgt=wgt, sols=sol, allow_pickle=True)
+    np.savez(basename + f'.th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}' + '.npz',
+             data=data, wgt=wgt, sols=sol, residual=res,
+             time=phys_time, freq=phys_freq, allow_pickle=True)
