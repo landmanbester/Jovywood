@@ -170,7 +170,7 @@ def gpr_smooth(**kw):
     norm_med = np.median(norm[mask])
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
     im = ax[0].imshow(norm, cmap='inferno',
-                 vmin=norm_med - 2*norm_mad, vmax=norm_med + 2*norm_mad,
+                 vmin=norm_med - norm_mad, vmax=norm_med + norm_mad,
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
@@ -273,9 +273,10 @@ def gpr_smooth(**kw):
     # import pdb; pdb.set_trace()
     res = np.where(mask, data-sol, 0.0)
 
-    vmin = sol.min()
-    vmax = sol.max()
-    im = ax[0].imshow(data, vmin=vmin, vmax=vmax,
+    data_mad = scipy.stats.median_abs_deviation(data[mask], scale='normal')
+    data_med = np.median(data[mask])
+    im = ax[0].imshow(data,
+                      vmin=data_med - data_mad, vmax=data_med + data_mad,
                             cmap='inferno', interpolation=None,
                             aspect='auto',
                             extent=[phys_time[0], phys_time[-1],
@@ -289,12 +290,14 @@ def gpr_smooth(**kw):
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
-
-    im = ax[1].imshow(sol, vmin=vmin, vmax=vmax,
-                            cmap='inferno', interpolation=None,
-                            aspect='auto',
-                            extent=[phys_time[0], phys_time[-1],
-                                    phys_freq[0], phys_freq[-1]])
+    sol_mad = scipy.stats.median_abs_deviation(sol[mask], scale='normal')
+    sol_med = np.median(sol[mask])
+    im = ax[1].imshow(sol,
+                      vmin=sol_med - 2*sol_mad, vmax=sol_med + 2*sol_mad,
+                      cmap='inferno', interpolation=None,
+                      aspect='auto',
+                      extent=[phys_time[0], phys_time[-1],
+                              phys_freq[0], phys_freq[-1]])
     ax[1].tick_params(axis='both', which='major',
                             length=1, width=1, labelsize=7)
 
@@ -304,9 +307,10 @@ def gpr_smooth(**kw):
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
-
+    res_mad = scipy.stats.median_abs_deviation(res[mask], scale='normal')
+    res_med = np.median(res[mask])
     im = ax[2].imshow(res, cmap='inferno',
-                 vmin=0.25*res.min(), vmax=0.25*res.max(),
+                 vmin=res_med - res_mad, vmax=res_med + res_mad,
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
