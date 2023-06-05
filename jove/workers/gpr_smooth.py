@@ -93,6 +93,9 @@ def gpr_smooth(**kw):
     norm = np.flipud(norm)
     std = fits.getdata(opts.basename + '.std.fits')[0].astype(np.float64)
     std = np.flipud(std)
+    # norm should be data/std
+    mask = data != 0
+    assert np.allclose(norm[mask], data[mask]/std[mask])
     wgt = np.where(data != 0, 1.0/std, 0.0)
     nv, nt = data.shape
     hdr = fits.getheader(opts.basename + '.fits')
@@ -166,7 +169,7 @@ def gpr_smooth(**kw):
     print('Plotting')
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
     im = ax[0].imshow(norm, cmap='inferno',
-                 vmin=data_convolved.min(), vmax=data_convolved.max(),
+                 vmin=norm.min(), vmax=norm.max(),
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
