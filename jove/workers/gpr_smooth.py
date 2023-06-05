@@ -84,6 +84,7 @@ def gpr_smooth(**kw):
     mpl.rcParams.update({'font.size': 18, 'font.family': 'serif'})
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+    import scipy
 
 
     # load data
@@ -162,13 +163,14 @@ def gpr_smooth(**kw):
     mhat *= Khat
     mask_convolved = Fs(c2r(mhat, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
 
-    scaled_result = data_convolved/mask_convolved
+    scaled_result = np.where(mask, data_convolved/mask_convolved, 0.0)
 
     res = np.where(mask, norm - scaled_result, 0.0)
-
+    norm_mad = scipy.stats.median_abs_deviation(norm[mask], scale='normal')
+    norm_med = np.median(norm[mask])
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
     im = ax[0].imshow(norm, cmap='inferno',
-                 vmin=norm.min(), vmax=norm.max(),
+                 vmin=norm_med - 2*norm_mad, vmax=norm_med + 2*norm_mad,
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
@@ -182,10 +184,11 @@ def gpr_smooth(**kw):
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-
-    im = ax[1].imshow(np.where(mask_convolved > 0.0, scaled_result, 0.0),
+    conv_mad = scipy.stats.median_abs_deviation(scaled_result[mask], scale='normal')
+    conv_med = np.median(scaled_result[mask])
+    im = ax[1].imshow(scaled_result,
                       cmap='inferno',
-                      vmin=scaled_result.min(), vmax=scaled_result.max(),
+                      vmin=conv_med - 2*conv_mad, vmax=conv_med + 2*conv_mad,
                       interpolation=None,
                       aspect='auto',
                       extent=[phys_time[0], phys_time[-1],
@@ -200,8 +203,10 @@ def gpr_smooth(**kw):
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
+    res_mad = scipy.stats.median_abs_deviation(res[mask], scale='normal')
+    res_med = np.median(res[mask])
     im = ax[2].imshow(res, cmap='inferno',
-                 vmin=0.25*res.min(), vmax=0.25*res.max(),
+                 vmin=res_med - res_mad, vmax=res_med + res_mad,
                  interpolation=None,
                  aspect='auto',
                  extent=[phys_time[0], phys_time[-1],
@@ -222,7 +227,6 @@ def gpr_smooth(**kw):
                 f"..th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_convolved.pdf",
                 bbox_inches='tight')
     plt.close(fig)
-
 
     plt.hist(res[mask], bins=25)
     plt.title('Hist convolved resid')
