@@ -166,7 +166,6 @@ def gpr_smooth(**kw):
 
     res = np.where(mask, norm - scaled_result, 0.0)
 
-    print('Plotting')
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
     im = ax[0].imshow(norm, cmap='inferno',
                  vmin=norm.min(), vmax=norm.max(),
