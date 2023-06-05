@@ -263,17 +263,17 @@ def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
 def madmask(data, wgt, th=5, sigv=7, sigt=7):
     import scipy
     from scipy.signal import convolve2d
-    image = np.where(wgt > 0, data, 0)
-    sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
-    med = np.median(image[image!=0])
-    maskup = image > med + th*sig
-    maskdown = image < med - th*sig
-    tmpmask = np.logical_or(maskup, maskdown)
+    mask = data != 0
+    image = np.zeros_like(data)
+    image[mask] = data[mask]/np.sqrt(wgt[mask])
+    sig = scipy.stats.median_abs_deviation(image[mask], scale='normal')
+    med = np.median(image[mask])
+    flag = np.logical_or(~mask, image > med + th*sig)
+    flag = np.logical_or(flag, image < med - th*sig)
     # import pdb; pdb.set_trace()
     # tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
     # tmpmask = (np.abs(tmpmask) > 0.1)
-    wgtmask = wgt == 0
-    return np.logical_or(tmpmask, wgtmask)
+    return ~flag
 
 class SingleDomain(ift.LinearOperator):
     def __init__(self, domain, target):
