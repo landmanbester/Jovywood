@@ -90,9 +90,14 @@ def gpr_smooth(**kw):
     # load data
     stokes = opts.basename[-1].upper()
     idx = 'IQUV'.find(stokes)
-    if str(idx) not in ['0123']:
-        raise ValueError(f'{stokes} is not a valid Stokes parameter')
-    data = fits.getdata(opts.basename + '.fits')[idx].astype(np.float64)
+    if str(idx) not in '0123':
+        print(f'{stokes} is not a valid Stokes parameter', file=log)
+        quit()
+    try:
+        data = fits.getdata(opts.basename + '.fits')[idx].astype(np.float64)
+    except Exception as e:
+        print(f"Failed to load data at {opts.basename + '.fits'}")
+        quit()
     data = np.flipud(data)
     norm = fits.getdata(opts.basename + '.norm.fits')[0].astype(np.float64)
     norm = np.flipud(norm)
