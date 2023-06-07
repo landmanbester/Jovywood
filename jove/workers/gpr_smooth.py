@@ -85,6 +85,7 @@ def gpr_smooth(**kw):
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     import scipy
+    from pathlib import Path
 
 
     # load data
@@ -131,14 +132,17 @@ def gpr_smooth(**kw):
 
     # scale to lie in [0, 1]
     nu = phys_freq - phys_freq[0]
-    phys_lnu = opts.lnu*nu.max()
+    lnu = opts.lnu/nu.max()
     nu /= nu.max()
-    assert phys_time[-1] == phys_time.max()
     t = phys_time - phys_time[0]
-    phys_lt = opts.lt * t.max()
+    lt = opts.lt / t.max() / 3600
     t /= t.max()
 
-    print(f'Smoothing kernel widths: time {phys_lt:.3e} s, freq {phys_lnu:.3e}', file=log)
+    print(f'Smoothing kernel widths: time {opts.lt} s, freq {opts.lnu} MHz', file=log)
+    # get directory where fits files live
+    outpath = Path(opts.basename).resolve().parent
+    outpath = Path(str(outpath) + f'/{stokes}/lnu{opts.lnu}MHz_lt{opts.lt}s')
+    outpath.mkdir(parents=True, exist_ok=True)
 
     # refine mask
     sigv = 3
@@ -156,8 +160,8 @@ def gpr_smooth(**kw):
         return np.exp(-(x-x[nx//2])**2/(2*l**2))
 
     print('Convolving', file=log)
-    kt = kernel(t, opts.lt)
-    kv = kernel(nu, opts.lnu)
+    kt = kernel(t, lt)
+    kv = kernel(nu, lnu)
     K = kv[:, None] * kt[None, :]
 
     K /= K.sum()
@@ -172,9 +176,10 @@ def gpr_smooth(**kw):
     mhat *= Khat
     mask_convolved = Fs(c2r(mhat, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
 
-    scaled_result = np.where(mask, data_convolved/mask_convolved, 0.0)
+    scaled_result = np.zeros_like(data_convolved)
+    scaled_result[mask] = data_convolved[mask]/mask_convolved[mask]
 
-    res = np.where(mask, norm - scaled_result, 0.0)
+    res_conv = np.where(mask, norm - scaled_result, 0.0)
     norm_mad = scipy.stats.median_abs_deviation(norm[mask], scale='normal')
     norm_med = np.median(norm[mask])
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
@@ -212,9 +217,9 @@ def gpr_smooth(**kw):
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    res_mad = scipy.stats.median_abs_deviation(res[mask], scale='normal')
-    res_med = np.median(res[mask])
-    im = ax[2].imshow(res, cmap='inferno',
+    res_mad = scipy.stats.median_abs_deviation(res_conv[mask], scale='normal')
+    res_med = np.median(res_conv[mask])
+    im = ax[2].imshow(res_conv, cmap='inferno',
                  vmin=res_med - res_mad, vmax=res_med + res_mad,
                  interpolation=None,
                  aspect='auto',
@@ -232,15 +237,13 @@ def gpr_smooth(**kw):
 
     fig.suptitle('Smoothed by convolvolution')
 
-    plt.savefig(opts.basename +
-                f"..th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_convolved.pdf",
+    plt.savefig(str(outpath) + "/convolved.pdf",
                 bbox_inches='tight')
     plt.close(fig)
 
-    plt.hist(res[mask], bins=25)
+    plt.hist(res_conv[mask], bins=25)
     plt.title('Hist convolved resid')
-    plt.savefig(opts.basename +
-                f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_convolved_hist_resid.pdf",
+    plt.savefig(str(outpath) + "/convolved_hist_resid.pdf",
                 bbox_inches='tight')
     plt.close()
 
@@ -254,13 +257,13 @@ def gpr_smooth(**kw):
 
     if opts.lt:
         tt = abs_diff(t, t)
-        Kt = sigmaf**2 * np.exp(-tt**2/(2*opts.lt**2))
+        Kt = sigmaf**2 * np.exp(-tt**2/(2*lt**2))
         Lt = np.linalg.cholesky(Kt + 1e-10*np.eye(nt))
     else:
         Lt = sigmaf * np.eye(nt)
 
     vv = abs_diff(nu, nu)
-    Kv = np.exp(-vv**2/(2*opts.lnu**2))
+    Kv = np.exp(-vv**2/(2*lnu**2))
     Lv = np.linalg.cholesky(Kv + 1e-10*np.eye(nv))
     L = (Lv, Lt)
     LH = (Lv.T, Lt.T)
@@ -280,7 +283,7 @@ def gpr_smooth(**kw):
 
     data = R.hdot(datac)
     # import pdb; pdb.set_trace()
-    res = np.where(mask, data-sol, 0.0)
+    res_sol = np.where(mask, data-sol, 0.0)
 
     data_mad = scipy.stats.median_abs_deviation(data[mask], scale='normal')
     data_med = np.median(data[mask])
@@ -316,9 +319,9 @@ def gpr_smooth(**kw):
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
-    res_mad = scipy.stats.median_abs_deviation(res[mask], scale='normal')
-    res_med = np.median(res[mask])
-    im = ax[2].imshow(res, cmap='inferno',
+    res_mad = scipy.stats.median_abs_deviation(res_sol[mask], scale='normal')
+    res_med = np.median(res_sol[mask])
+    im = ax[2].imshow(res_sol, cmap='inferno',
                  vmin=res_med - res_mad, vmax=res_med + res_mad,
                  interpolation=None,
                  aspect='auto',
@@ -336,75 +339,27 @@ def gpr_smooth(**kw):
 
     fig.suptitle('Smoothed by GPR')
 
-    plt.savefig(opts.basename +
-                f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}.pdf",
+    plt.savefig(str(outpath) + "/gpr.pdf",
                 bbox_inches='tight')
     plt.close(fig)
 
-    resc = res[mask]
+    resc = res_sol[mask]
 
     plt.hist(resc, bins=25)
     plt.title('Hist resid')
-    plt.savefig(opts.basename +
-                f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_hist_resid.pdf",
+    plt.savefig(str(outpath) + "/gpr_hist_resid.pdf",
                 bbox_inches='tight')
     plt.close()
 
 
     hdr = fits.getheader(opts.basename + '.fits')
-    fits.writeto(opts.basename + f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}.fits",
+    fits.writeto(str(outpath) + "/gpr.fits",
                  np.tile(np.flipud(sol), (4,1,1)), overwrite=True)
 
-    # fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
-    # for c in range(4):
-    #     # make lightcurves
-    #     lc_raw = np.sum(data[c], axis=0)
-    #     lw_raw = np.sum(wgt[c], axis=0)
-    #     # lc_raw = np.where(lw_raw > 0, lc_raw/lw_raw, np.nan)
+    fits.writeto(str(outpath) + "/convolved.fits",
+                 np.tile(np.flipud(scaled_result), (4,1,1)), overwrite=True)
 
-    #     # lstd = 1.0/np.sqrt(lw_raw[lw_raw!=0])
-
-    #     lc_mean = np.sum(sols[c], axis=0)
-
-
-    #     ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
-    #     ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
-    #     ax[c].set_ylabel(f'{corrs[c]}')
-    #     if c in [0,1,2]:
-    #         ax[c].get_xaxis().set_visible(False)
-    #     else:
-    #         ax[c].set_xlabel('time / [hrs]')
-
-    # plt.savefig(basename +
-    #             f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_lc.pdf",
-    #             bbox_inches='tight')
-    # plt.close(fig)
-
-    # fig, ax = plt.subplots(nrows=4, ncols=1, sharex=True)
-    # for c in range(4):
-    #     # make lightcurves
-    #     lc_raw = np.sum(data[c]**2, axis=0)
-    #     lw_raw = np.sum(wgt[c], axis=0)
-    #     # lc_raw = np.where(lw_raw > 0, lc_raw/lw_raw, np.nan)
-
-    #     # lstd = 1.0/np.sqrt(lw_raw[lw_raw!=0])
-
-    #     lc_mean = np.sum(sols[c]**2, axis=0)
-
-
-    #     ax[c].plot(phys_time, lc_mean, 'k', alpha=0.75, linewidth=1)
-    #     ax[c].plot(phys_time[lw_raw!=0], lc_raw[lw_raw!=0], '.r', alpha=0.15, markersize=3)
-    #     ax[c].set_ylabel(f'{corrs[c]}')
-    #     if c in [0,1,2]:
-    #         ax[c].get_xaxis().set_visible(False)
-    #     else:
-    #         ax[c].set_xlabel('time / [hrs]')
-
-    # plt.savefig(basename +
-    #             f".th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}_pw.pdf",
-    #             bbox_inches='tight')
-    # plt.close(fig)
-
-    np.savez(opts.basename + f'.th{opts.mad_threshold}_lnu{opts.lnu}_lt{opts.lt}' + '.npz',
-             data=data, wgt=wgt, sols=sol, residual=res, norm=norm,
-             time=phys_time, freq=phys_freq, phys_lnu=phys_lnu, phys_lt=phys_lt, allow_pickle=True)
+    np.savez(str(outpath) + '/results.npz',
+             data=data, wgt=wgt, sols=sol, residual_gpr=res_sol,
+             norm=norm, convolved=scaled_result, residual_convolved=res_conv,
+             time=phys_time, freq=phys_freq, lnu=opts.lnu, lt=opts.lt, allow_pickle=True)
