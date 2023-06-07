@@ -8,22 +8,17 @@ requirements = [
                 'numpy',
                 'scipy',
                 'matplotlib',
-                'numba',
-                'xarray',
-                'zarr',
+                'ducc0',
+                'ipython',
+                'dask[distributed]',
+                'pytest >= 6.2.2',
                 'pyscilog >= 0.1.2',
                 'Click',
                 'omegaconf',
-                'dask',
-                'dask[array]',
-                'astropy',
+                "stimela==2.0rc4",
                 'aplpy',
-                'ducc0',
-                'mpi4py',
+                'xarray',
 
-                "pfb-clean"
-                "@git+https://github.com/ratt-ru/pfb-clean.git"
-                "@stokes_products",
             ]
 
 

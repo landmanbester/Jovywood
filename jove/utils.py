@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from numba import jit
 from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
 from astropy.io import fits
@@ -8,7 +7,7 @@ from astropy.wcs import WCS
 import aplpy
 import matplotlib.pyplot as plt
 import os.path
-import nifty7 as ift
+# import nifty7 as ift
 
 
 def to4d(data):
@@ -109,7 +108,104 @@ def abs_diff(x, xp):
     return np.linalg.norm(xD - xpD, axis=0)
 
 
-@jit(nopython=True, nogil=True, cache=True, inline='always')
+def kron_matvec(A, b):
+    D = len(A)
+    N = b.size
+    x = b
+
+    for d in range(D):
+        Gd = A[d].shape[0]
+        NGd = N // Gd
+        X = np.reshape(x, (Gd, NGd))
+        Z = A[d].dot(X).T
+        x = Z.ravel()
+    return x.reshape(b.shape)
+
+def pcg(A,
+        b,
+        x0=None,
+        M=None,
+        tol=1e-5,
+        maxit=500,
+        minit=100,
+        verbosity=1,
+        report_freq=10,
+        backtrack=True,
+        return_resid=False):
+
+    if x0 is None:
+        x0 = np.zeros(b.shape, dtype=b.dtype)
+
+    if M is None:
+        def M(x): return x
+
+    r = A(x0) - b
+    y = M(r)
+    if not np.any(y):
+        print(f"Initial residual is zero", file=log)
+        return x0
+    p = -y
+    rnorm = np.vdot(r, y)
+    if np.isnan(rnorm) or rnorm == 0.0:
+        eps0 = 1.0
+    else:
+        eps0 = rnorm
+    k = 0
+    x = x0
+    eps = 1.0
+    stall_count = 0
+    while (eps > tol or k < minit) and k < maxit and stall_count < 5:
+        xp = x.copy()
+        rp = r.copy()
+        Ap = A(p)
+        rnorm = np.vdot(r, y)
+        alpha = rnorm / np.vdot(p, Ap)
+        x = xp + alpha * p
+        r = rp + alpha * Ap
+        y = M(r)
+        rnorm_next = np.vdot(r, y)
+        while rnorm_next > rnorm and backtrack:  # TODO - better line search
+            alpha *= 0.75
+            x = xp + alpha * p
+            r = rp + alpha * Ap
+            y = M(r)
+            rnorm_next = np.vdot(r, y)
+
+        beta = rnorm_next / rnorm
+        p = beta * p - y
+        # if p is zero we should stop
+        if not np.any(p):
+            break
+        rnorm = rnorm_next
+        k += 1
+        epsp = eps
+        eps = np.linalg.norm(x - xp) / np.linalg.norm(x)
+        # epsn = rnorm / eps0
+        # eps = rnorm / eps0
+        # eps = np.maximum(epsx, epsn)
+
+        # if np.abs(epsp - eps) < 1e-3*tol:
+        #     stall_count += 1
+
+        if not k % report_freq and verbosity > 1:
+            print(f"At iteration {k} epsx = {eps:.3e}")
+
+    if k >= maxit:
+        if verbosity:
+            print(f"Max iters reached. eps = {eps:.3e}")
+    elif stall_count >= 5:
+        if verbosity:
+            print(f"Stalled after {k} iterations with eps = {eps:.3e}")
+    else:
+        if verbosity:
+            print(f"Success, converged after {k} iterations")
+    if not return_resid:
+        return x
+    else:
+        return x, r
+
+
+# @jit(nopython=True, nogil=True, cache=True, inline='always')
 def diag_dot(A, B):
     N = A.shape[0]
     C = np.zeros(N)
@@ -119,7 +215,7 @@ def diag_dot(A, B):
     return C
 
 
-@jit(nopython=True, nogil=True, cache=True)
+# @jit(nopython=True, nogil=True, cache=True)
 def dZdtheta(theta, xxsq, y, Sigma):
     '''
     Return log-marginal likelihood and derivs
@@ -134,7 +230,7 @@ def dZdtheta(theta, xxsq, y, Sigma):
     Ky = K + np.diag(Sigma) * sigman**2
     # with numba.objmode: # args?
     #     u, s, v = np.linalg.svd(Ky, hermitian=True)
-    u, s, v = np.linalg.svd(Ky)
+    u, s, v = np.linalg.svd(Ky, hermitian=True)
     logdetK = np.sum(np.log(s))
     Kyinv = u.dot(v/s.reshape(N, 1))
     alpha = Kyinv.dot(y)
@@ -164,7 +260,7 @@ def fit_pix(image, xxsq, Sigma, sigman0):
     return _fit_pix(image[0], xxsq, Sigma, sigman0)
 
 
-@jit(nopython=True, nogil=True, cache=True)
+# @jit(nopython=True, nogil=True, cache=True)
 def grid_search(sigmaf, sigman, xxsq, y, Sigma):
     Zmax = np.inf
     theta = np.array([sigmaf, 0.0, sigman])
@@ -203,11 +299,33 @@ def _fit_pix(image, xxsq, Sigma, sigman0):
     return thetas
 
 
+def _fit_gpr(y, xxsq, Sigma, sigman0=1):
+    n = y.size
+    thetas = np.zeros((3))
+    sigmaf0 = np.std(y)
+
+    # l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+    try:
+        l0 = grid_search(sigmaf0, sigman0, xxsq, y, Sigma)
+    except:
+        l0 = 0.5
+
+    theta0 = np.array([sigmaf0, l0, sigman0])
+    try:
+        theta, fval, dinfo = fmin(dZdtheta, theta0, args=(xxsq, y, Sigma), approx_grad=False,
+                                    bounds=((1e-5, None), (1e-3, None), (0.1, 100)),
+                                    factr=1e9, pgtol=5e-4)
+
+        return theta
+    except:
+        return theta0
+
+
 def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     return _interp_pix(thetas[0], np.require(image, dtype=np.float64), xxsq, xxpsq, Sigma, oversmooth)
 
 
-@jit(nopython=True, nogil=True, cache=True, inline='always')
+# @jit(nopython=True, nogil=True, cache=True, inline='always')
 def _interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     _, nx, ny = thetas.shape
     ntout = xxpsq.shape[0]
@@ -241,29 +359,62 @@ def _cube2fits(name, image, ras, decs, times, freqs, cell_size, idx):
 def madmask(data, wgt, th=5, sigv=7, sigt=7):
     import scipy
     from scipy.signal import convolve2d
-    mask = None
-    for i in range(4):
-        image = np.where(wgt[i] > 0, np.abs(data[i]), 0)
-        sig = scipy.stats.median_abs_deviation(image[image!=0], scale='normal')
-        tmpmask = (image > th*sig)
-        tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
-        tmpmask = (np.abs(tmpmask) > 0.1)
-        if mask is None:
-            mask = tmpmask
-        else:
-            mask = np.logical_or(mask, tmpmask)
-    wgtmask = np.where(np.prod(wgt, axis=0) > 0, 0.0, 1.0)
-    return np.logical_or(mask, wgtmask)
+    mask = data != 0
+    image = np.zeros_like(data)
+    image[mask] = data[mask]/np.sqrt(wgt[mask])
+    sig = scipy.stats.median_abs_deviation(image[mask], scale='normal')
+    med = np.median(image[mask])
+    flag = np.logical_or(~mask, image > med + th*sig)
+    flag = np.logical_or(flag, image < med - th*sig)
+    # import pdb; pdb.set_trace()
+    # tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
+    # tmpmask = (np.abs(tmpmask) > 0.1)
+    return ~flag
 
-class SingleDomain(ift.LinearOperator):
-    def __init__(self, domain, target):
-        self._domain = ift.makeDomain(domain)
-        self._target = ift.makeDomain(target)
-        self._capability = self.TIMES | self.ADJOINT_TIMES
 
-    def apply(self, x, mode):
-        self._check_input(x, mode)
-        return ift.makeField(self._tgt(mode), x.val)
+def data_from_header(hdr, axis=3):
+    npix = hdr['NAXIS' + str(axis)]
+    refpix = hdr['CRPIX' + str(axis)]
+    delta = hdr['CDELT' + str(axis)]
+    ref_val = hdr['CRVAL' + str(axis)]
+    return ref_val + np.arange(1 - refpix, 1 + npix - refpix) * delta, ref_val
+
+
+# class SingleDomain(ift.LinearOperator):
+#     def __init__(self, domain, target):
+#         self._domain = ift.makeDomain(domain)
+#         self._target = ift.makeDomain(target)
+#         self._capability = self.TIMES | self.ADJOINT_TIMES
+
+#     def apply(self, x, mode):
+#         self._check_input(x, mode)
+#         return ift.makeField(self._tgt(mode), x.val)
+
+
+class Mask(object):
+    def __init__(self, mask):
+        """
+        Mask operator
+        """
+        nx, ny = mask.shape
+        self.nx = nx
+        self.ny = ny
+        self.mask = mask
+
+    def dot(self, x):
+        """
+        Components to image
+        """
+        return x[self.mask]
+
+    def hdot(self, x):
+        """
+        Image to components
+        """
+        res = np.zeros((self.nx, self.ny))
+        res[self.mask] = x
+        return res  #np.where(self.mask, 0.0, x)
+
 
 # def drop2axes(filename, outname):
 #     hdu = fits.open(filename)[0]
