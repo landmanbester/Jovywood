@@ -142,7 +142,7 @@ def gpr_smooth(**kw):
     # refine mask
     sigv = 3
     sigt = 3
-    mask = madmask(data, wgt, th=opts.mad_threshold, sigv=sigv, sigt=sigt).astype(np.bool)
+    mask = madmask(data, wgt, th=opts.mad_threshold, sigv=sigv, sigt=sigt).astype(bool)
 
     ysize = 16
     xsize = int(np.ceil(nt * 12/nv))

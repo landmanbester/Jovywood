@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from numba import jit
 from scipy.optimize import fmin_l_bfgs_b as fmin
 from datetime import datetime
 from astropy.io import fits
@@ -8,7 +7,7 @@ from astropy.wcs import WCS
 import aplpy
 import matplotlib.pyplot as plt
 import os.path
-import nifty7 as ift
+# import nifty7 as ift
 
 
 def to4d(data):
@@ -189,25 +188,24 @@ def pcg(A,
         #     stall_count += 1
 
         if not k % report_freq and verbosity > 1:
-            print(f"At iteration {k} epsx = {eps:.3e}",
-                  file=log)
+            print(f"At iteration {k} epsx = {eps:.3e}")
 
     if k >= maxit:
         if verbosity:
-            print(f"Max iters reached. eps = {eps:.3e}", file=log)
+            print(f"Max iters reached. eps = {eps:.3e}")
     elif stall_count >= 5:
         if verbosity:
-            print(f"Stalled after {k} iterations with eps = {eps:.3e}", file=log)
+            print(f"Stalled after {k} iterations with eps = {eps:.3e}")
     else:
         if verbosity:
-            print(f"Success, converged after {k} iterations", file=log)
+            print(f"Success, converged after {k} iterations")
     if not return_resid:
         return x
     else:
         return x, r
 
 
-@jit(nopython=True, nogil=True, cache=True, inline='always')
+# @jit(nopython=True, nogil=True, cache=True, inline='always')
 def diag_dot(A, B):
     N = A.shape[0]
     C = np.zeros(N)
@@ -262,7 +260,7 @@ def fit_pix(image, xxsq, Sigma, sigman0):
     return _fit_pix(image[0], xxsq, Sigma, sigman0)
 
 
-@jit(nopython=True, nogil=True, cache=True)
+# @jit(nopython=True, nogil=True, cache=True)
 def grid_search(sigmaf, sigman, xxsq, y, Sigma):
     Zmax = np.inf
     theta = np.array([sigmaf, 0.0, sigman])
@@ -327,7 +325,7 @@ def interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     return _interp_pix(thetas[0], np.require(image, dtype=np.float64), xxsq, xxpsq, Sigma, oversmooth)
 
 
-@jit(nopython=True, nogil=True, cache=True, inline='always')
+# @jit(nopython=True, nogil=True, cache=True, inline='always')
 def _interp_pix(thetas, image, xxsq, xxpsq, Sigma, oversmooth):
     _, nx, ny = thetas.shape
     ntout = xxpsq.shape[0]
@@ -382,15 +380,15 @@ def data_from_header(hdr, axis=3):
     return ref_val + np.arange(1 - refpix, 1 + npix - refpix) * delta, ref_val
 
 
-class SingleDomain(ift.LinearOperator):
-    def __init__(self, domain, target):
-        self._domain = ift.makeDomain(domain)
-        self._target = ift.makeDomain(target)
-        self._capability = self.TIMES | self.ADJOINT_TIMES
+# class SingleDomain(ift.LinearOperator):
+#     def __init__(self, domain, target):
+#         self._domain = ift.makeDomain(domain)
+#         self._target = ift.makeDomain(target)
+#         self._capability = self.TIMES | self.ADJOINT_TIMES
 
-    def apply(self, x, mode):
-        self._check_input(x, mode)
-        return ift.makeField(self._tgt(mode), x.val)
+#     def apply(self, x, mode):
+#         self._check_input(x, mode)
+#         return ift.makeField(self._tgt(mode), x.val)
 
 
 class Mask(object):
