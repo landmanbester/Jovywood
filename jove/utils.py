@@ -109,6 +109,104 @@ def abs_diff(x, xp):
     return np.linalg.norm(xD - xpD, axis=0)
 
 
+def kron_matvec(A, b):
+    D = len(A)
+    N = b.size
+    x = b
+
+    for d in range(D):
+        Gd = A[d].shape[0]
+        NGd = N // Gd
+        X = np.reshape(x, (Gd, NGd))
+        Z = A[d].dot(X).T
+        x = Z.ravel()
+    return x.reshape(b.shape)
+
+def pcg(A,
+        b,
+        x0=None,
+        M=None,
+        tol=1e-5,
+        maxit=500,
+        minit=100,
+        verbosity=1,
+        report_freq=10,
+        backtrack=True,
+        return_resid=False):
+
+    if x0 is None:
+        x0 = np.zeros(b.shape, dtype=b.dtype)
+
+    if M is None:
+        def M(x): return x
+
+    r = A(x0) - b
+    y = M(r)
+    if not np.any(y):
+        print(f"Initial residual is zero", file=log)
+        return x0
+    p = -y
+    rnorm = np.vdot(r, y)
+    if np.isnan(rnorm) or rnorm == 0.0:
+        eps0 = 1.0
+    else:
+        eps0 = rnorm
+    k = 0
+    x = x0
+    eps = 1.0
+    stall_count = 0
+    while (eps > tol or k < minit) and k < maxit and stall_count < 5:
+        xp = x.copy()
+        rp = r.copy()
+        Ap = A(p)
+        rnorm = np.vdot(r, y)
+        alpha = rnorm / np.vdot(p, Ap)
+        x = xp + alpha * p
+        r = rp + alpha * Ap
+        y = M(r)
+        rnorm_next = np.vdot(r, y)
+        while rnorm_next > rnorm and backtrack:  # TODO - better line search
+            alpha *= 0.75
+            x = xp + alpha * p
+            r = rp + alpha * Ap
+            y = M(r)
+            rnorm_next = np.vdot(r, y)
+
+        beta = rnorm_next / rnorm
+        p = beta * p - y
+        # if p is zero we should stop
+        if not np.any(p):
+            break
+        rnorm = rnorm_next
+        k += 1
+        epsp = eps
+        eps = np.linalg.norm(x - xp) / np.linalg.norm(x)
+        # epsn = rnorm / eps0
+        # eps = rnorm / eps0
+        # eps = np.maximum(epsx, epsn)
+
+        # if np.abs(epsp - eps) < 1e-3*tol:
+        #     stall_count += 1
+
+        if not k % report_freq and verbosity > 1:
+            print(f"At iteration {k} epsx = {eps:.3e}",
+                  file=log)
+
+    if k >= maxit:
+        if verbosity:
+            print(f"Max iters reached. eps = {eps:.3e}", file=log)
+    elif stall_count >= 5:
+        if verbosity:
+            print(f"Stalled after {k} iterations with eps = {eps:.3e}", file=log)
+    else:
+        if verbosity:
+            print(f"Success, converged after {k} iterations", file=log)
+    if not return_resid:
+        return x
+    else:
+        return x, r
+
+
 @jit(nopython=True, nogil=True, cache=True, inline='always')
 def diag_dot(A, B):
     N = A.shape[0]
@@ -274,6 +372,15 @@ def madmask(data, wgt, th=5, sigv=7, sigt=7):
     # tmpmask = convolve2d(tmpmask, np.ones((sigv, sigt), dtype=np.float32), mode="same")
     # tmpmask = (np.abs(tmpmask) > 0.1)
     return ~flag
+
+
+def data_from_header(hdr, axis=3):
+    npix = hdr['NAXIS' + str(axis)]
+    refpix = hdr['CRPIX' + str(axis)]
+    delta = hdr['CDELT' + str(axis)]
+    ref_val = hdr['CRVAL' + str(axis)]
+    return ref_val + np.arange(1 - refpix, 1 + npix - refpix) * delta, ref_val
+
 
 class SingleDomain(ift.LinearOperator):
     def __init__(self, domain, target):

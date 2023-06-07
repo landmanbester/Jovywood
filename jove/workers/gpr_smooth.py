@@ -70,13 +70,8 @@ def gpr_smooth(**kw):
     os.environ["VECLIB_MAXIMUM_THREADS"] = str(opts.nthreads)
     os.environ["NUMBA_NUM_THREADS"] = str(opts.nthreads)
     import numpy as np
-    import xarray as xr
     from astropy.io import fits
-    from jove.utils import madmask, Mask
-    from africanus.gps.utils import abs_diff
-    from pfb.utils.misc import kron_matvec
-    from pfb.opt.pcg import pcg
-    from pfb.utils.fits import data_from_header
+    from jove.utils import madmask, Mask, abs_diff, kron_matvec, pcg, data_from_header
     from ducc0.fft import r2c, c2r
     iFs = np.fft.ifftshift
     Fs = np.fft.fftshift
