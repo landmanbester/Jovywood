@@ -102,7 +102,9 @@ def gpr_smooth(**kw):
     # norm should be data/std
     mask = data != 0
     assert np.allclose(norm[mask], data[mask]/std[mask])
-    wgt = np.where(data != 0, 1.0/std, 0.0)
+    wgt = np.where(data != 0, 1.0/std**2, 0.0)
+    # this differs from the norm Cyril was using
+    norm = data * wgt
     nv, nt = data.shape
     hdr = fits.getheader(opts.basename + '.fits')
     delt = hdr['CDELT1']
@@ -167,18 +169,19 @@ def gpr_smooth(**kw):
     dhat = r2c(iFs(norm), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
     dhat *= Khat
     data_convolved = Fs(c2r(dhat, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
-    mhat = r2c(iFs(mask.astype(np.float64)), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
-    mhat *= Khat
-    mask_convolved = Fs(c2r(mhat, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
+    what = r2c(iFs(wgt.astype(np.float64)), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
+    what *= Khat
+    wgt_convolved = Fs(c2r(what, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
 
+    tmp_mask = wgt_convolved > 0.0
     scaled_result = np.zeros_like(data_convolved)
-    scaled_result[mask] = data_convolved[mask]/mask_convolved[mask]
+    scaled_result[tmp_mask] = data_convolved[tmp_mask]/wgt_convolved[tmp_mask]
 
-    res_conv = np.where(mask, norm - scaled_result, 0.0)
-    norm_mad = scipy.stats.median_abs_deviation(norm[mask], scale='normal')
-    norm_med = np.median(norm[mask])
+    res_conv = np.where(mask, data - scaled_result, 0.0)
+    norm_mad = scipy.stats.median_abs_deviation(data[tmp_mask], scale='normal')
+    norm_med = np.median(data[tmp_mask])
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
-    im = ax[0].imshow(norm, cmap='inferno',
+    im = ax[0].imshow(data, cmap='inferno',
                  vmin=norm_med - norm_mad, vmax=norm_med + norm_mad,
                  interpolation=None,
                  aspect='auto',
@@ -193,8 +196,8 @@ def gpr_smooth(**kw):
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    conv_mad = scipy.stats.median_abs_deviation(scaled_result[mask], scale='normal')
-    conv_med = np.median(scaled_result[mask])
+    conv_mad = scipy.stats.median_abs_deviation(scaled_result[tmp_mask], scale='normal')
+    conv_med = np.median(scaled_result[tmp_mask])
     im = ax[1].imshow(scaled_result,
                       cmap='inferno',
                       vmin=conv_med - 2*conv_mad, vmax=conv_med + 2*conv_mad,
@@ -212,8 +215,8 @@ def gpr_smooth(**kw):
     cb.outline.set_visible(False)
     cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    res_mad = scipy.stats.median_abs_deviation(res_conv[mask], scale='normal')
-    res_med = np.median(res_conv[mask])
+    res_mad = scipy.stats.median_abs_deviation(res_conv[tmp_mask], scale='normal')
+    res_med = np.median(res_conv[tmp_mask])
     im = ax[2].imshow(res_conv, cmap='inferno',
                  vmin=res_med - res_mad, vmax=res_med + res_mad,
                  interpolation=None,
