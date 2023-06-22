@@ -173,7 +173,7 @@ def gpr_smooth(**kw):
     what *= Khat
     wgt_convolved = Fs(c2r(what, axes=(0,1), nthreads=opts.nthreads, forward=False, inorm=2, lastsize=nt))
 
-    tmp_mask = wgt_convolved > 0.0
+    tmp_mask = wgt_convolved > opts.sigma_min
     scaled_result = np.zeros_like(data_convolved)
     scaled_result[tmp_mask] = data_convolved[tmp_mask]/wgt_convolved[tmp_mask]
 
@@ -245,119 +245,130 @@ def gpr_smooth(**kw):
                 bbox_inches='tight')
     plt.close()
 
-    datac = data[mask]
-    wgtc = wgt[mask]
-    R = Mask(mask)
 
-    sigmaf = np.std(datac)*5
+    if opts.do_gpr:
+        datac = data[mask]
+        wgtc = wgt[mask]
+        R = Mask(mask)
 
-    print(f"Using std of data to set sigmaf to {sigmaf}", file=log)
+        sigmaf = np.std(datac)*5
 
-    if opts.lt:
-        tt = abs_diff(t, t)
-        Kt = sigmaf**2 * np.exp(-tt**2/(2*lt**2))
-        Lt = np.linalg.cholesky(Kt + 1e-10*np.eye(nt))
-    else:
-        Lt = sigmaf * np.eye(nt)
+        print(f"Using std of data to set sigmaf to {sigmaf}", file=log)
 
-    vv = abs_diff(nu, nu)
-    Kv = np.exp(-vv**2/(2*lnu**2))
-    Lv = np.linalg.cholesky(Kv + 1e-10*np.eye(nv))
-    L = (Lv, Lt)
-    LH = (Lv.T, Lt.T)
+        if opts.lt:
+            tt = abs_diff(t, t)
+            Kt = sigmaf**2 * np.exp(-tt**2/(2*lt**2))
+            Lt = np.linalg.cholesky(Kt + 1e-10*np.eye(nt))
+        else:
+            Lt = sigmaf * np.eye(nt)
 
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
-    sols = np.zeros_like(data)
+        vv = abs_diff(nu, nu)
+        Kv = np.exp(-vv**2/(2*lnu**2))
+        Lv = np.linalg.cholesky(Kv + 1e-10*np.eye(nv))
+        L = (Lv, Lt)
+        LH = (Lv.T, Lt.T)
 
-    def hess(x):
-        return kron_matvec(LH, R.hdot(wgtc * R.dot(kron_matvec(L, x)))) + x
+        fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(xsize, ysize))
+        sols = np.zeros_like(data)
 
-    print('Running GPR', file=log)
-    delta = pcg(hess, kron_matvec(LH, R.hdot(wgtc * datac)),
-                np.zeros((nv, nt), dtype=np.float64),
-                minit=10, maxit=100, verbosity=2,
-                report_freq=1, tol=1e-2)
-    sol = kron_matvec(L, delta)
+        def hess(x):
+            return kron_matvec(LH, R.hdot(wgtc * R.dot(kron_matvec(L, x)))) + x
 
-    data = R.hdot(datac)
-    # import pdb; pdb.set_trace()
-    res_sol = np.where(mask, data-sol, 0.0)
+        print('Running GPR', file=log)
+        delta = pcg(hess, kron_matvec(LH, R.hdot(wgtc * datac)),
+                    np.zeros((nv, nt), dtype=np.float64),
+                    minit=10, maxit=100, verbosity=2,
+                    report_freq=1, tol=1e-2)
+        sol = kron_matvec(L, delta)
 
-    data_mad = scipy.stats.median_abs_deviation(data[mask], scale='normal')
-    data_med = np.median(data[mask])
-    im = ax[0].imshow(data,
-                      vmin=data_med - data_mad, vmax=data_med + data_mad,
-                            cmap='inferno', interpolation=None,
-                            aspect='auto',
-                            extent=[phys_time[0], phys_time[-1],
-                                    phys_freq[0], phys_freq[-1]])
-    ax[0].tick_params(axis='both', which='major',
-                            length=1, width=1, labelsize=7)
-    ax[0].set_ylabel('freq / [MHz]')
+        data = R.hdot(datac)
+        # import pdb; pdb.set_trace()
+        res_sol = np.where(mask, data-sol, 0.0)
 
-    divider = make_axes_locatable(ax[0])
-    cax = divider.append_axes("right", size="2%", pad=0.1)
-    cb = fig.colorbar(im, cax=cax, orientation="vertical")
-    cb.outline.set_visible(False)
-    cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
-    sol_mad = scipy.stats.median_abs_deviation(sol[mask], scale='normal')
-    sol_med = np.median(sol[mask])
-    im = ax[1].imshow(sol,
-                      vmin=sol_med - 2*sol_mad, vmax=sol_med + 2*sol_mad,
-                      cmap='inferno', interpolation=None,
-                      aspect='auto',
-                      extent=[phys_time[0], phys_time[-1],
-                              phys_freq[0], phys_freq[-1]])
-    ax[1].tick_params(axis='both', which='major',
-                            length=1, width=1, labelsize=7)
+        data_mad = scipy.stats.median_abs_deviation(data[mask], scale='normal')
+        data_med = np.median(data[mask])
+        im = ax[0].imshow(data,
+                        vmin=data_med - data_mad, vmax=data_med + data_mad,
+                                cmap='inferno', interpolation=None,
+                                aspect='auto',
+                                extent=[phys_time[0], phys_time[-1],
+                                        phys_freq[0], phys_freq[-1]])
+        ax[0].tick_params(axis='both', which='major',
+                                length=1, width=1, labelsize=7)
+        ax[0].set_ylabel('freq / [MHz]')
 
-    ax[1].set_ylabel('freq / [MHz]')
-    divider = make_axes_locatable(ax[1])
-    cax = divider.append_axes("right", size="2%", pad=0.1)
-    cb = fig.colorbar(im, cax=cax, orientation="vertical")
-    cb.outline.set_visible(False)
-    cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
-    res_mad = scipy.stats.median_abs_deviation(res_sol[mask], scale='normal')
-    res_med = np.median(res_sol[mask])
-    im = ax[2].imshow(res_sol, cmap='inferno',
-                 vmin=res_med - res_mad, vmax=res_med + res_mad,
-                 interpolation=None,
-                 aspect='auto',
-                 extent=[phys_time[0], phys_time[-1],
-                         phys_freq[0], phys_freq[-1]])
-    ax[2].tick_params(axis='both', which='major',
-                            length=1, width=1, labelsize=7)
-    ax[2].set_xlabel('time / [hrs]')
-    ax[2].set_ylabel('freq / [MHz]')
-    divider = make_axes_locatable(ax[2])
-    cax = divider.append_axes("right", size="2%", pad=0.1)
-    cb = fig.colorbar(im, cax=cax, orientation="vertical")
-    cb.outline.set_visible(False)
-    cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
+        divider = make_axes_locatable(ax[0])
+        cax = divider.append_axes("right", size="2%", pad=0.1)
+        cb = fig.colorbar(im, cax=cax, orientation="vertical")
+        cb.outline.set_visible(False)
+        cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
+        sol_mad = scipy.stats.median_abs_deviation(sol[mask], scale='normal')
+        sol_med = np.median(sol[mask])
+        im = ax[1].imshow(sol,
+                        vmin=sol_med - 2*sol_mad, vmax=sol_med + 2*sol_mad,
+                        cmap='inferno', interpolation=None,
+                        aspect='auto',
+                        extent=[phys_time[0], phys_time[-1],
+                                phys_freq[0], phys_freq[-1]])
+        ax[1].tick_params(axis='both', which='major',
+                                length=1, width=1, labelsize=7)
 
-    fig.suptitle('Smoothed by GPR')
+        ax[1].set_ylabel('freq / [MHz]')
+        divider = make_axes_locatable(ax[1])
+        cax = divider.append_axes("right", size="2%", pad=0.1)
+        cb = fig.colorbar(im, cax=cax, orientation="vertical")
+        cb.outline.set_visible(False)
+        cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
+        res_mad = scipy.stats.median_abs_deviation(res_sol[mask], scale='normal')
+        res_med = np.median(res_sol[mask])
+        im = ax[2].imshow(res_sol, cmap='inferno',
+                    vmin=res_med - res_mad, vmax=res_med + res_mad,
+                    interpolation=None,
+                    aspect='auto',
+                    extent=[phys_time[0], phys_time[-1],
+                            phys_freq[0], phys_freq[-1]])
+        ax[2].tick_params(axis='both', which='major',
+                                length=1, width=1, labelsize=7)
+        ax[2].set_xlabel('time / [hrs]')
+        ax[2].set_ylabel('freq / [MHz]')
+        divider = make_axes_locatable(ax[2])
+        cax = divider.append_axes("right", size="2%", pad=0.1)
+        cb = fig.colorbar(im, cax=cax, orientation="vertical")
+        cb.outline.set_visible(False)
+        cb.ax.tick_params(length=1, width=1, labelsize=7, pad=0.1)
 
-    plt.savefig(str(outpath) + "/gpr.pdf",
-                bbox_inches='tight')
-    plt.close(fig)
+        fig.suptitle('Smoothed by GPR')
 
-    resc = res_sol[mask]
+        plt.savefig(str(outpath) + "/gpr.pdf",
+                    bbox_inches='tight')
+        plt.close(fig)
 
-    plt.hist(resc, bins=25)
-    plt.title('Hist resid')
-    plt.savefig(str(outpath) + "/gpr_hist_resid.pdf",
-                bbox_inches='tight')
-    plt.close()
+        resc = res_sol[mask]
+
+        plt.hist(resc, bins=25)
+        plt.title('Hist resid')
+        plt.savefig(str(outpath) + "/gpr_hist_resid.pdf",
+                    bbox_inches='tight')
+        plt.close()
 
 
     hdr = fits.getheader(opts.basename + '.fits')
-    fits.writeto(str(outpath) + "/gpr.fits",
-                 np.tile(np.flipud(sol), (4,1,1)), overwrite=True)
+    if opts.do_gpr:
+        fits.writeto(str(outpath) + "/gpr.fits",
+                    np.tile(np.flipud(sol), (4,1,1)), overwrite=True)
 
     fits.writeto(str(outpath) + "/convolved.fits",
                  np.tile(np.flipud(scaled_result), (4,1,1)), overwrite=True)
 
-    np.savez(str(outpath) + '/results.npz',
-             data=data, wgt=wgt, sols=sol, residual_gpr=res_sol,
-             norm=norm, convolved=scaled_result, residual_convolved=res_conv,
-             time=phys_time, freq=phys_freq, lnu=opts.lnu, lt=opts.lt, allow_pickle=True)
+    if opts.do_gpr:
+        np.savez(str(outpath) + '/results.npz',
+                data=data, wgt=wgt, sols=sol, residual_gpr=res_sol,
+                norm=norm, convolved=scaled_result, residual_convolved=res_conv,
+                time=phys_time, freq=phys_freq, lnu=opts.lnu, lt=opts.lt,
+                weight_convolved=wgt_convolved, allow_pickle=True)
+    else:
+        np.savez(str(outpath) + '/results.npz',
+                data=data, wgt=wgt, norm=norm,
+                convolved=scaled_result, residual_convolved=res_conv,
+                time=phys_time, freq=phys_freq, lnu=opts.lnu, lt=opts.lt,
+                weight_convolved=wgt_convolved, allow_pickle=True)

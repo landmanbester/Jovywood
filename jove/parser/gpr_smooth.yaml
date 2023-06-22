@@ -46,6 +46,16 @@ inputs:
     default: -1
     info:
       End freq
+  sigma_min:
+    dtype: float
+    default: 1e-6
+    info:
+      Lower cut off for smoothed variance
+  do_gpr:
+    dtype: bool
+    default: true
+    info:
+      Whether to perform GPR or not
 
 outputs:
   {}
