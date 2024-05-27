@@ -15,7 +15,7 @@ requirements = [
                 'pyscilog >= 0.1.2',
                 'Click',
                 'omegaconf',
-                "stimela==2.0rc4",
+                "stimela >= 2.0rc17",
                 'aplpy',
                 'xarray',
 
