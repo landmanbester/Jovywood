@@ -11,7 +11,7 @@ from jove.parser.schemas import schema
 # create default parameters from schema
 defaults = {}
 for key in schema.gpr_smooth["inputs"].keys():
-    defaults[key] = schema.gpr_smooth["inputs"][key]["default"]
+    defaults[key.replace("-", "_")] = schema.gpr_smooth["inputs"][key]["default"]
 
 @cli.command(context_settings={'show_default': True})
 @clickify_parameters(schema.gpr_smooth)
