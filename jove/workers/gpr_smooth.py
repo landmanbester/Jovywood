@@ -31,6 +31,9 @@ def gpr_smooth(**kw):
 
     chi2 = (d - Rx).H W (d - Rx) + (x - xbar).H Kinv (x - xbar)
 
+    posterior_mean = (R.H W R + Kinv)^{-1} (R.H W d + Kinv xbar)
+    posterior_cov = (R.H W R + Kinv)^{-1} I
+
     where xbar is an assumed prior mean function and Kinv the inverse of the prior
     covariance matrix (computed from the domain of the problem after assuming a
     specific covariance function).
@@ -52,6 +55,20 @@ def gpr_smooth(**kw):
 
     This solution is straightforward to obtain using eg. the PCG algorithm.
     The value of the variable x is given by x = L xi.
+
+    # Cyril used to do:
+
+    norm = data/mad -> units of SNR
+    smooth = norm * kernel
+    mask_conv = mask * kernel
+    smooth /= mask_conv
+
+    # What we do
+
+    norm = data x wgt  -> wgt = 1/(1.4826 * mad)**2
+    smooth = norm * kernel
+    wgt_conv = wgt * kernel
+    smooth /= wgt_conv
     '''
     defaults.update(kw)
     opts = OmegaConf.create(defaults)
@@ -164,7 +181,11 @@ def gpr_smooth(**kw):
     K /= K.sum()
     Khat = r2c(iFs(K), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
 
-    norm = np.where(mask, norm, 0.0)
+
+    data = np.where(mask>0, data, 0.0)
+    wgt = np.where(mask>0, wgt, 0.0)
+    norm = np.where(mask>0, data*wgt, 0.0)
+
 
     dhat = r2c(iFs(norm), axes=(0,1), nthreads=opts.nthreads, forward=True, inorm=0)
     dhat *= Khat
